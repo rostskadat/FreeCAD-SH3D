@@ -1,0 +1,385 @@
+ <!ELEMENT home (property*, furnitureVisibleProperty*, environment?, backgroundImage?, print?, compass?, (camera | observerCamera)*, level*,
+       (pieceOfFurniture | doorOrWindow | furnitureGroup | light)*, wall*, room*, polyline*, dimensionLine*, label*)>
+ <!ATTLIST home
+       version CDATA #IMPLIED
+       name CDATA #IMPLIED
+       camera (observerCamera | topCamera) "topCamera"
+       selectedLevel CDATA #IMPLIED
+       wallHeight CDATA #IMPLIED
+       basePlanLocked (false | true) "false"
+       furnitureSortedProperty CDATA #IMPLIED
+       furnitureDescendingSorted (false | true) "false">
+
+ <!ELEMENT property EMPTY>
+ <!ATTLIST property
+       name CDATA #REQUIRED
+       value CDATA #REQUIRED
+       type (STRING|CONTENT) "STRING">
+
+ <!ELEMENT furnitureVisibleProperty EMPTY>
+ <!ATTLIST furnitureVisibleProperty name CDATA #REQUIRED>
+
+ <!ELEMENT environment (property*, (camera | observerCamera)*, texture?, texture?) >
+ <!ATTLIST environment
+       groundColor CDATA #IMPLIED
+       backgroundImageVisibleOnGround3D (false | true) "false"
+       skyColor CDATA #IMPLIED
+       lightColor CDATA #IMPLIED
+       wallsAlpha CDATA "0"
+       allLevelsVisible (false | true) "false"
+       observerCameraElevationAdjusted (false | true) "true"
+       ceillingLightColor CDATA #IMPLIED
+       drawingMode (FILL | OUTLINE | FILL_AND_OUTLINE) "FILL"
+       subpartSizeUnderLight CDATA "0"
+       photoWidth CDATA "400"
+       photoHeight CDATA "300"
+       photoAspectRatio (FREE_RATIO | VIEW_3D_RATIO | RATIO_4_3 | RATIO_3_2 | RATIO_16_9 | RATIO_2_1 | RATIO_24_10 | SQUARE_RATIO) "VIEW_3D_RATIO"
+       photoQuality CDATA "0"
+       videoWidth CDATA "320"
+       videoAspectRatio (RATIO_4_3 | RATIO_16_9 | RATIO_24_10) "RATIO_4_3"
+       videoQuality CDATA "0"
+       videoSpeed CDATA #IMPLIED
+       videoFrameRate CDATA "25">
+
+ <!ELEMENT backgroundImage EMPTY>
+ <!ATTLIST backgroundImage
+       image CDATA #REQUIRED
+       scaleDistance CDATA #REQUIRED
+       scaleDistanceXStart CDATA #REQUIRED
+       scaleDistanceYStart CDATA #REQUIRED
+       scaleDistanceXEnd CDATA #REQUIRED
+       scaleDistanceYEnd CDATA #REQUIRED
+       xOrigin CDATA "0"
+       yOrigin CDATA "0"
+       visible (false | true) "true">
+
+ <!ELEMENT print (printedLevel*)>
+ <!ATTLIST print
+       headerFormat CDATA #IMPLIED
+       footerFormat CDATA #IMPLIED
+       planScale CDATA #IMPLIED
+       furniturePrinted (false | true) "true"
+       planPrinted (false | true) "true"
+       view3DPrinted (false | true) "true"
+       paperWidth CDATA #REQUIRED
+       paperHeight CDATA #REQUIRED
+       paperTopMargin CDATA #REQUIRED
+       paperLeftMargin CDATA #REQUIRED
+       paperBottomMargin CDATA #REQUIRED
+       paperRightMargin CDATA #REQUIRED
+       paperOrientation (PORTRAIT | LANDSCAPE | REVERSE_LANDSCAPE) #REQUIRED>
+
+ <!ELEMENT printedLevel EMPTY>
+ <!ATTLIST printedLevel level ID #REQUIRED>
+
+ <!ELEMENT compass (property*)>
+ <!ATTLIST compass
+       x CDATA #REQUIRED
+       y CDATA #REQUIRED
+       diameter CDATA #REQUIRED
+       northDirection CDATA "0"
+       longitude CDATA #IMPLIED
+       latitude CDATA #IMPLIED
+       timeZone CDATA #IMPLIED
+       visible (false | true) "true">
+
+ <!ENTITY % cameraCommonAttributes
+      'id ID #IMPLIED
+       name CDATA #IMPLIED
+       lens (PINHOLE | NORMAL | FISHEYE | SPHERICAL) "PINHOLE"
+       x CDATA #REQUIRED
+       y CDATA #REQUIRED
+       z CDATA #REQUIRED
+       yaw CDATA #REQUIRED
+       pitch CDATA #REQUIRED
+       time CDATA #IMPLIED
+       fieldOfView CDATA #REQUIRED
+       renderer CADATA #IMPLIED'>
+
+ <!ELEMENT camera (property*)>
+ <!ATTLIST camera
+       %cameraCommonAttributes;
+       attribute (topCamera | storedCamera | cameraPath) #REQUIRED>
+
+ <!ELEMENT observerCamera (property*)>
+ <!ATTLIST observerCamera
+       %cameraCommonAttributes;
+       attribute (observerCamera | storedCamera | cameraPath) #REQUIRED
+       fixedSize (false | true) "false">
+
+ <!ELEMENT level (property*, backgroundImage?)>
+ <!ATTLIST level
+       id ID #REQUIRED
+       name CDATA #REQUIRED
+       elevation CDATA #REQUIRED
+       floorThickness CDATA #REQUIRED
+       height CDATA #REQUIRED
+       elevationIndex CDATA "-1"
+       visible (false | true) "true"
+       viewable (false | true) "true">
+
+ <!ENTITY % furnitureCommonAttributes
+      'id ID #IMPLIED
+       name CDATA #REQUIRED
+       angle CDATA "0"
+       visible (false | true) "true"
+       movable (false | true) "true"
+       description CDATA #IMPLIED
+       information CDATA #IMPLIED
+       license CDATA #IMPLIED
+       creator CDATA #IMPLIED
+       modelMirrored (false | true) "false"
+       nameVisible (false | true) "false"
+       nameAngle CDATA "0"
+       nameXOffset CDATA "0"
+       nameYOffset CDATA "0"
+       price CDATA #IMPLIED'>
+
+ <!ELEMENT furnitureGroup ((pieceOfFurniture | doorOrWindow | furnitureGroup | light)*, property*, textStyle?)>
+ <!ATTLIST furnitureGroup
+       %furnitureCommonAttributes;
+       level IDREF #IMPLIED
+       x CDATA #IMPLIED
+       y CDATA #IMPLIED
+       elevation CDATA #IMPLIED
+       width CDATA #IMPLIED
+       depth CDATA #IMPLIED
+       height CDATA #IMPLIED
+       dropOnTopElevation CDATA #IMPLIED>
+
+ <!ENTITY % pieceOfFurnitureCommonAttributes
+      'level IDREF #IMPLIED
+       catalogId CDATA #IMPLIED
+       x CDATA #REQUIRED
+       y CDATA #REQUIRED
+       elevation CDATA "0"
+       width CDATA #REQUIRED
+       depth CDATA #REQUIRED
+       height CDATA #REQUIRED
+       dropOnTopElevation CDATA "1"
+       model CDATA #IMPLIED
+       icon CDATA #IMPLIED
+       planIcon CDATA #IMPLIED
+       modelRotation CDATA "1 0 0 0 1 0 0 0 1"
+       modelCenteredAtOrigin CDATA #IMPLIED
+       backFaceShown (false | true) "false"
+       modelFlags CDATA #IMPLIED
+       modelSize CDATA #IMPLIED
+       doorOrWindow (false | true) "false"
+       resizable (false | true) "true"
+       deformable (false | true) "true"
+       texturable (false | true) "true"
+       staircaseCutOutShape CDATA #IMPLIED
+       color CDATA #IMPLIED
+       shininess CDATA #IMPLIED
+       valueAddedTaxPercentage CDATA #IMPLIED
+       currency CDATA #IMPLIED'>
+
+ <!ENTITY % pieceOfFurnitureHorizontalRotationAttributes
+      'horizontallyRotatable (false | true) "true"
+       pitch CDATA "0"
+       roll CDATA "0"
+       widthInPlan CDATA #IMPLIED
+       depthInPlan CDATA #IMPLIED
+       heightInPlan CDATA #IMPLIED'>
+
+ <!ELEMENT pieceOfFurniture (property*, textStyle?, texture?, material*, transformation*)>
+ <!ATTLIST pieceOfFurniture
+       %furnitureCommonAttributes;
+       %pieceOfFurnitureCommonAttributes;
+       %pieceOfFurnitureHorizontalRotationAttributes;>
+
+ <!ELEMENT doorOrWindow (sash*, property*, textStyle?, texture?, material*, transformation*)>
+ <!ATTLIST doorOrWindow
+       %furnitureCommonAttributes;
+       %pieceOfFurnitureCommonAttributes;
+       wallThickness CDATA "1"
+       wallDistance CDATA "0"
+       wallWidth CDATA "1"
+       wallLeft CDATA "0"
+       wallHeight CDATA "1"
+       wallTop CDATA "0"
+       wallCutOutOnBothSides (false | true) "false"
+       widthDepthDeformable (false | true) "true"
+       cutOutShape CDATA #IMPLIED
+       boundToWall (false | true) "true">
+
+ <!ELEMENT sash EMPTY>
+ <!ATTLIST sash
+       xAxis CDATA #REQUIRED
+       yAxis CDATA #REQUIRED
+       width CDATA #REQUIRED
+       startAngle CDATA #REQUIRED
+       endAngle CDATA #REQUIRED>
+
+ <!ELEMENT light (lightSource*, lightSourceMaterial*, property*, textStyle?, texture?, material*, transformation*)>
+ <!ATTLIST light
+       %furnitureCommonAttributes;
+       %pieceOfFurnitureCommonAttributes;
+       %pieceOfFurnitureHorizontalRotationAttributes;
+       power CDATA "0.5">
+
+ <!ELEMENT lightSource EMPTY>
+ <!ATTLIST lightSource
+       x CDATA #REQUIRED
+       y CDATA #REQUIRED
+       z CDATA #REQUIRED
+       color CDATA #REQUIRED
+       diameter CDATA #IMPLIED>
+
+ <!ELEMENT lightSourceMaterial EMPTY>
+ <!ATTLIST lightSourceMaterial
+       name #REQUIRED>
+
+ <!ELEMENT shelfUnit (shelf*, property*, textStyle?, texture?, material*, transformation*)>
+ <!ATTLIST shelfUnit
+       %furnitureCommonAttributes;
+       %pieceOfFurnitureCommonAttributes;
+       %pieceOfFurnitureHorizontalRotationAttributes;>
+
+ <!ELEMENT shelf EMPTY>
+ <!ATTLIST shelf
+       elevation CDATA #IMPLIED
+       xLower CDATA #IMPLIED
+       yLower CDATA #IMPLIED
+       zLower CDATA #IMPLIED
+       xUpper CDATA #IMPLIED
+       yUpper CDATA #IMPLIED
+       zUpper CDATA #IMPLIED>
+
+ <!ELEMENT textStyle EMPTY>
+ <!ATTLIST textStyle
+       attribute (nameStyle | areaStyle | lengthStyle) #IMPLIED
+       fontName CDATA #IMPLIED
+       fontSize CDATA #REQUIRED
+       bold (false | true) "false"
+       italic (false | true) "false"
+       alignment (LEFT | CENTER | RIGHT) "CENTER">
+
+ <!ELEMENT texture EMPTY>
+ <!ATTLIST texture
+       attribute (groundTexture | skyTexture | leftSideTexture | rightSideTexture | floorTexture | ceilingTexture) #IMPLIED
+       catalogId CDATA #IMPLIED
+       name CDATA #REQUIRED
+       width CDATA #REQUIRED
+       height CDATA #REQUIRED
+       xOffset CDATA "0"
+       yOffset CDATA "0"
+       angle CDATA "0"
+       scale CDATA "1"
+       creator CDATA #IMPLIED
+       fittingArea (false | true) "false"
+       leftToRightOriented (true | false) "true"
+       image CDATA #REQUIRED>
+
+ <!ELEMENT material (texture?)>
+ <!ATTLIST material
+       name CDATA #REQUIRED
+       key CDATA #IMPLIED
+       color CDATA #IMPLIED
+       shininess CDATA #IMPLIED>
+
+ <!ELEMENT transformation EMPTY>
+ <!ATTLIST transformation
+       name CDATA #REQUIRED
+       matrix CDATA #REQUIRED>
+
+ <!ELEMENT wall (property*, texture?, texture?, baseboard?, baseboard?)>
+ <!ATTLIST wall
+       id ID #REQUIRED
+       level IDREF #IMPLIED
+       wallAtStart IDREF #IMPLIED
+       wallAtEnd IDREF #IMPLIED
+       xStart CDATA #REQUIRED
+       yStart CDATA #REQUIRED
+       xEnd CDATA #REQUIRED
+       yEnd CDATA #REQUIRED
+       height CDATA #IMPLIED
+       heightAtEnd CDATA #IMPLIED
+       thickness CDATA #REQUIRED
+       arcExtent CDATA #IMPLIED
+       pattern CDATA #IMPLIED
+       topColor CDATA #IMPLIED
+       leftSideColor CDATA #IMPLIED
+       leftSideShininess CDATA "0"
+       rightSideColor CDATA #IMPLIED
+       rightSideShininess CDATA "0">
+
+ <!ELEMENT baseboard (texture?)>
+ <!ATTLIST baseboard
+       attribute (leftSideBaseboard | rightSideBaseboard) #REQUIRED
+       thickness CDATA #REQUIRED
+       height CDATA #REQUIRED
+       color CDATA #IMPLIED>
+
+ <!ELEMENT room (property*, textStyle?, textStyle?, texture?, texture?, point+)>
+ <!ATTLIST room
+       id ID #IMPLIED
+       level IDREF #IMPLIED
+       name CDATA #IMPLIED
+       nameAngle CDATA "0"
+       nameXOffset CDATA "0"
+       nameYOffset CDATA "-40"
+       areaVisible (false | true) "false"
+       areaAngle CDATA "0"
+       areaXOffset CDATA "0"
+       areaYOffset CDATA "0"
+       floorVisible (false | true) "true"
+       floorColor CDATA #IMPLIED
+       floorShininess CDATA "0"
+       ceilingVisible (false | true) "true"
+       ceilingColor CDATA #IMPLIED
+       ceilingShininess CDATA "0"
+       ceilingFlat (false | true) "false">
+
+ <!ELEMENT point EMPTY>
+ <!ATTLIST point
+       x CDATA #REQUIRED
+       y CDATA #REQUIRED>
+
+ <!ELEMENT polyline (property*, point+)>
+ <!ATTLIST polyline
+       id ID #IMPLIED
+       level IDREF #IMPLIED
+       thickness CDATA "1"
+       capStyle (BUTT | SQUARE | ROUND) "BUTT"
+       joinStyle (BEVEL | MITER | ROUND | CURVED) "MITER"
+       dashStyle (SOLID | DOT | DASH | DASH_DOT | DASH_DOT_DOT | CUSTOMIZED) "SOLID"
+       dashPattern CDATA #IMPLIED
+       dashOffset CDATA "0"
+       startArrowStyle (NONE | DELTA | OPEN | DISC) "NONE"
+       endArrowStyle (NONE | DELTA | OPEN | DISC) "NONE"
+       elevation CDATA #IMPLIED
+       color CDATA #IMPLIED
+       closedPath (false | true) "false">
+
+ <!ELEMENT dimensionLine (property*, textStyle?)>
+ <!ATTLIST dimensionLine
+       id ID #IMPLIED
+       level IDREF #IMPLIED
+       xStart CDATA #REQUIRED
+       yStart CDATA #REQUIRED
+       elevationStart CDATA "0"
+       xEnd CDATA #REQUIRED
+       yEnd CDATA #REQUIRED
+       elevationEnd CDATA "0"
+       offset CDATA #REQUIRED
+       endMarkSize CDATA "10";
+       angle CDATA "0"
+       color CDATA #IMPLIED
+       visibleIn3D (false | true) "false">
+
+ <!ELEMENT label (property*, textStyle?, text)>
+ <!ATTLIST label
+       id ID #IMPLIED
+       level IDREF #IMPLIED
+       x CDATA #REQUIRED
+       y CDATA #REQUIRED
+       angle CDATA "0"
+       elevation CDATA "0"
+       pitch CDATA #IMPLIED
+       color CDATA #IMPLIED
+       outlineColor CDATA #IMPLIED>
+
+ <!ELEMENT text (#PCDATA)>
+ 

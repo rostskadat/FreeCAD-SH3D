@@ -26,6 +26,6 @@
 import FreeCAD
 
 FreeCAD.addImportType("SweetHome3D format (*.sh3d)","importSH3D")
-FreeCAD.addExportType("SweetHome3D format (*.sh3d)","importSH3D")
+FreeCAD.addExportType("SweetHome3D format (*.sh3d)","exportSH3D")
 
 #FreeCAD.__unit_test__ += [ "TestSweetHome3D" ]
