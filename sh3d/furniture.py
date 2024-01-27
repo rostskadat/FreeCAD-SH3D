@@ -23,7 +23,6 @@ def get_mesh_from_model(zip, model, materials):
         rename(model_path, model_path_obj)
         mesh = Mesh.Mesh()
         mesh.read(model_path_obj)
-        mesh.fillupHoles(1000)
     finally:
         if model_path_obj: 
             remove(model_path_obj)

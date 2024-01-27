@@ -12,7 +12,7 @@ def hex2rgb(hexcode):
     return (int(hexcode[offset:offset+2], 16), int(hexcode[offset+2:offset+4], 16), int(hexcode[offset+4:offset+6], 16))
 
 def hex2transparency(hexcode):
-    return 100 - int( int(hexcode[0:2], 16) * 100 / 255 )
+    return 50 # 100 - int( int(hexcode[0:2], 16) * 100 / 255 )
 
 def set_color_and_transparency(obj, color):
     if hasattr(obj.ViewObject,"ShapeColor"):
@@ -32,7 +32,7 @@ def get_property(home, property_name):
     return None
 
 def coord_fc2sh(vector):
-    """Converts FreeCAD to SweetHome coordinate 
+    """Converts FreeCAD to SweetHome coordinate
 
     Args:
         vector (FreeCAD.Vector): The coordinate in FreeCAD
@@ -43,7 +43,7 @@ def coord_fc2sh(vector):
     return FreeCAD.Vector(vector.x/FACTOR, -vector.y/FACTOR, vector.z/FACTOR)
 
 def coord_sh2fc(vector):
-    """Converts SweetHome to FreeCAD coordinate 
+    """Converts SweetHome to FreeCAD coordinate
 
     Args:
         vector (FreeCAD.Vector): The coordinate in SweetHome
@@ -75,6 +75,8 @@ def dim_sh2fc(dimension):
     """
     return float(dimension)*FACTOR
 
+def get_attr(obj, attribute_name, default_value=None):
+    return obj[attribute_name] if attribute_name in obj else default_value
 
 def add_property(obj, property_type, name, description):
     obj.addProperty(property_type, name, "SweetHome3D", description)
