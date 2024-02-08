@@ -67,7 +67,6 @@ except NameError:
 def checkSH3D():
     return True
 
-
 def open(filename):
     "called when freecad wants to open a file"
     if not checkSH3D():
@@ -148,6 +147,7 @@ def read(filename):
         document.Comment = get_property(home, 'Copyright')
         document.License = get_property(home, 'License')
         document.recompute()
+    Gui.SendMsgToActiveView("ViewFit")
 
 def export(exportList,filename,tessellation=1,colors=None):
     # REF: /home/rostskadat/git/opensource/sweethome3d-code/sweethome3d-code/SweetHome3D/src/com/eteks/sweethome3d/io/HomeFileRecorder.java

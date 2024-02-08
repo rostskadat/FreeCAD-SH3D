@@ -22,8 +22,8 @@ In FreeCAD console:
 filename = "/home/rostskadat/git/drawings/FreeCAD-models/Samples/Sample.sh3d"
 
 from importlib import reload
-import importSH3D
-reload (importSH3D) ; home = importSH3D.read(filename)
+import sh3d.import_sh3d
+reload (sh3d.import_sh3d) ; home = sh3d.import_sh3d(filename)
 ```
 
 ## Contributing
