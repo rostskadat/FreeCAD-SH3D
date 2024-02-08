@@ -31,9 +31,6 @@ import FreeCAD
 import FreeCADGui
 
 import sys
-if sys.version_info[0] !=2:
-    from importlib import reload
-reload(sys)
 
 class SweetHome3DWorkbench(FreeCADGui.Workbench):
     """The SweetHome3D workbench definition."""
@@ -48,11 +45,11 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
         if not os.path.isdir(__dirname__):
             FreeCAD.Console.PrintError("Failed to determine the install location of the SweetHome3D workbench. Check your installation.\n")
         _tooltip = ("The SweetHome3D workbench is used to import SweetHome3D materials")
-        self.__class__.ResourceDir = os.path.join(__dirname__, "Resources")
-        self.__class__.Icon = os.path.join(self.ResourceDir, "icons", "SweetHome3DWorkbench.svg")
-        self.__class__.MenuText = QT_TRANSLATE_NOOP("SweetHome3D", "SweetHome3D")
-        self.__class__.ToolTip = QT_TRANSLATE_NOOP("SweetHome3D", _tooltip)
+        self.__class__.MenuText = QT_TRANSLATE_NOOP("SH3D", "SweetHome3D")
+        self.__class__.ToolTip = QT_TRANSLATE_NOOP("SH3D", _tooltip)
+        self.__class__.Icon = os.path.join(__dirname__, "Resources", "icons", "SH3D_Workbench.svg")
         self.__class__.Version = "0.0.1"
+        FreeCAD.Console.PrintLog('Created SweetHome3D workbench.\n')
 
     def Initialize(self):
         """When the workbench is first loaded."""
@@ -60,18 +57,17 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
         def QT_TRANSLATE_NOOP(context, text):
             return text
 
-        import sh3d
-
-        self.toolbar = [ "SweetHome3D_Import", ]
+        from draftutils.init_tools import init_toolbar, init_menu
+        import SH3D_Import
 
         # Set up toolbars
-        from draftutils.init_tools import init_toolbar, init_menu
-        init_toolbar(self, QT_TRANSLATE_NOOP("Workbench", "SweetHome3D tools"), self.toolbar)
-        init_menu(self, QT_TRANSLATE_NOOP("Workbench", "SweetHome3D"), self.toolbar)
+        self.toolbar = [ "SH3D_Import", ]
+        init_toolbar(self, QT_TRANSLATE_NOOP("SH3D", "SweetHome3D tools"), self.toolbar)
+        init_menu(self, QT_TRANSLATE_NOOP("SH3D", "SweetHome3D"), self.toolbar)
 
-        FreeCADGui.addIconPath(":/icons")
-        FreeCADGui.addLanguagePath(":/translations")
-        FreeCAD.Console.PrintLog('Loading SweetHome3D workbench, done.\n')
+        # FreeCADGui.addIconPath(":/icons")
+        # FreeCADGui.addLanguagePath(":/translations")
+        # FreeCAD.Console.PrintLog('Initialized SweetHome3D workbench.\n')
 
     def Activated(self):
         """When entering the workbench."""
@@ -89,4 +85,3 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
         return "Gui::PythonWorkbench"
 
 
-FreeCADGui.addWorkbench(SweetHome3DWorkbench)

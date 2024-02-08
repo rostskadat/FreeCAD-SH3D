@@ -22,10 +22,9 @@
 #***************************************************************************/
 
 # FreeCAD init script of the sh3d module
-
 import FreeCAD
 
-FreeCAD.addImportType("SweetHome3D format (*.sh3d)","SH3DImportCommand")
-FreeCAD.addExportType("SweetHome3D format (*.sh3d)","exportSH3D")
+FreeCAD.addImportType("SweetHome3D format (*.sh3d)","importSH3D")
+FreeCAD.addExportType("SweetHome3D format (*.sh3d)","importSH3D")
 
 #FreeCAD.__unit_test__ += [ "TestSweetHome3D" ]
