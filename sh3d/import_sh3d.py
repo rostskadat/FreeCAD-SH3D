@@ -27,6 +27,7 @@ import Arch
 import Draft
 import DraftVecUtils
 import FreeCAD
+import FreeCADGui
 import Mesh
 import WorkingPlane
 
@@ -40,11 +41,21 @@ FACTOR = 10
 
 DEBUG = True
 
-def import_sh3d(filename):
+RENDER_AVAILABLE = True
+
+try:
+    import Render
+except:
+    FreeCAD.Console.PrintWarning("Render is not available. Not creating any lights.\n")
+    RENDER_AVAILABLE = False
+
+def import_sh3d(filename, progress_bar=None, status=None):
     """Import a SweetHome 3D file into the current document.
 
     Args:
         filename (str): the filename of the document to import 
+        progress_bar (QProgressBar, optional): the progress bar to update. Defaults to None.
+        status (QLabel, optional): the status widget. Defaults to None.
 
     Raises:
         ValueError: If the document is an invalid SweetHome 3D document
@@ -61,18 +72,34 @@ def import_sh3d(filename):
         document.addObject("App::DocumentObjectGroup","Furnitures")
         document.addObject("App::DocumentObjectGroup","Lights")
 
-        if home.find('level'):
+        _set_progress(progress_bar, 0)
+        _set_status(status, "Importing levels ...")
+        if home.findall('level'):
             floors = _import_levels(home)
         else:
             floors = [_create_default_floor()]
 
+        _set_progress(progress_bar, 10)
+        _set_status(status, "Importing rooms ...")
         _import_rooms(home, floors)
+        _set_progress(progress_bar, 20)
+        _set_status(status, "Importing walls ...")
         _import_walls(home, floors)
+        _set_progress(progress_bar, 30)
+        _set_status(status, "Importing doors ...")
         _import_doors(home, floors)
+        _set_progress(progress_bar, 40)
+        _set_status(status, "Importing furnitues ...")
         _import_furnitures(home, zip, floors)
+        _set_progress(progress_bar, 50)
+        _set_status(status, "Importing lights ...")
         _import_lights(home, zip, floors)
+        _set_progress(progress_bar, 60)
+        _set_status(status, "Importing cameras ...")
         _import_observer_cameras(home)
 
+        _set_progress(progress_bar, 70)
+        _set_status(status, "Creating Arch Site ...")
         building = Arch.makeBuilding(floors)
         #building.Label = home.find('label').find('text')
         Arch.makeSite([ building ])
@@ -83,7 +110,25 @@ def import_sh3d(filename):
         document.CreatedBy = _get_sh3d_property(home, 'Author')
         document.Comment = _get_sh3d_property(home, 'Copyright')
         document.License = _get_sh3d_property(home, 'License')
-        document.recompute()
+
+        _set_status(status, "Successfully imported data.")
+        _set_progress(progress_bar, 100)
+
+    FreeCAD.activeDocument().recompute()
+    if FreeCAD.GuiUp:
+        FreeCADGui.SendMsgToActiveView("ViewFit")        
+
+
+def _set_progress(progress_bar, value):
+    if FreeCAD.GuiUp and progress_bar:
+        progress_bar.setValue(value)
+
+
+def _set_status(status, text):
+    if FreeCAD.GuiUp and status:
+        status.setText(text)
+        FreeCADGui.updateGui()
+
 
 def _import_levels(home):
     """Returns all the levels found in the file.
@@ -94,17 +139,20 @@ def _import_levels(home):
     Returns:
         list: the list of imported floors
     """
-    return list(map(_import_level, home.findall('level')))
+    return list(map(_import_level, enumerate(home.findall('level'))))
 
-def _import_level(imported_level):
+
+def _import_level(imported_tuple):
     """Creates and returns a Arch::Floor from the imported_level object
 
     Args:
-        imported_level (dict): the dict object containg the characteristics of the new object
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
 
     Returns:
         Arc::Floor: the newly created object
     """
+    (i, imported_level) = imported_tuple
     floor = Arch.makeFloor()
     floor.Label = imported_level.get('name')
     floor.Placement.Base.z = _dim_sh2fc(float(imported_level.get('elevation')))
@@ -123,6 +171,10 @@ def _import_level(imported_level):
     floor.floorThickness = _dim_sh2fc(float(imported_level.get('floorThickness')))
     floor.elevationIndex = int(imported_level.get('elevationIndex', 0))
     floor.ViewObject.Visibility = imported_level.get('visible', 'false') == 'true'
+
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
+        FreeCADGui.SendMsgToActiveView("ViewFit")
 
     return floor
 
@@ -167,17 +219,19 @@ def _import_rooms(home, floors):
     Returns:
         list: the list of imported rooms
     """
-    return list(map(partial(_import_room, floors), home.findall('room')))
+    return list(map(partial(_import_room, floors), enumerate(home.findall('room'))))
 
-def _import_room(floors, imported_room):
+def _import_room(floors, imported_tuple):
     """Creates and returns a Arch::Structure from the imported_room object
 
     Args:
-        imported_room (dict): the dict object containg the characteristics of the new object
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
 
     Returns:
         Arc::Structure: the newly created object
     """
+    (i, imported_room) = imported_tuple
     floor = _get_floor(floors, imported_room.get('level'))
 
     pl = FreeCAD.Placement()
@@ -231,6 +285,11 @@ def _import_room(floors, imported_room):
     slab.ceilingFlat = bool(imported_room.get('ceilingFlat', False))
 
     floor.addObject(slab)
+
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
+        FreeCADGui.SendMsgToActiveView("ViewFit")
+
     return slab
 
 def _import_walls(home, floors):
@@ -243,17 +302,19 @@ def _import_walls(home, floors):
     Returns:
         list: the list of imported walls
     """
-    return list(map(partial(_import_wall, floors), home.findall('wall')))
+    return list(map(partial(_import_wall, floors), enumerate(home.findall('wall'))))
 
-def _import_wall(floors, imported_wall):
+def _import_wall(floors, imported_tuple):
     """Creates and returns a Arch::Structure from the imported_wall object
 
     Args:
-        imported_wall (dict): the dict object containg the characteristics of the new object
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
 
     Returns:
         Arc::Structure: the newly created object
     """
+    (i, imported_wall) = imported_tuple
     floor = _get_floor(floors, imported_wall.get('level'))
 
     if imported_wall.get('heightAtEnd'):
@@ -288,6 +349,11 @@ def _import_wall(floors, imported_wall):
     wall.rightSideShininess = float(imported_wall.get('rightSideShininess', 0))
 
     floor.addObject(wall)
+
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
+        FreeCADGui.SendMsgToActiveView("ViewFit")
+
     return wall
 
 def _make_straight_wall(floor, imported_wall):
@@ -480,18 +546,20 @@ def _import_doors(home, floors):
     Returns:
         list: the list of imported doors
     """
-    return list(map(partial(_import_door, floors), home.findall('doorOrWindow')))
+    return list(map(partial(_import_door, floors), enumerate(home.findall('doorOrWindow'))))
 
-def _import_door(floors, imported_door):
+def _import_door(floors, imported_tuple):
     """Creates and returns a Arch::Door from the imported_door object
 
     Args:
         floors (list): the list of imported levels
-        imported_door (dict): the dict object containg the characteristics of the new object
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
 
     Returns:
         Arch::Door: the newly created object
     """
+    (i, imported_door) = imported_tuple
     floor = _get_floor(floors, imported_door.get('level'))
 
     window = _create_window(floor, imported_door)
@@ -526,6 +594,9 @@ def _import_door(floors, imported_door):
     window.widthDepthDeformable = bool(imported_door.get('widthDepthDeformable', True))
     window.cutOutShape = str(imported_door.get('cutOutShape', ''))
     window.boundToWall = bool(imported_door.get('boundToWall', True))
+
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
 
     return window
 
@@ -603,10 +674,21 @@ def _get_wall(floor, imported_door):
     return None
 
 def _import_furnitures(home, zip, floors):
-    list(map(partial(_import_furniture, zip, floors), home.findall('pieceOfFurniture')))
+    list(map(partial(_import_furniture, zip, floors), enumerate(home.findall('pieceOfFurniture'))))
 
-def _import_furniture(zip, floors, imported_furniture):
+def _import_furniture(zip, floors, imported_tuple):
+    """Creates and returns a Mesh from the imported_furniture object
 
+    Args:
+        zip (ZipFile): the Zip containing the Mesh file
+        floors (list): the list of imported levels
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
+
+    Returns:
+        Mesh: the newly created object
+    """
+    (i, imported_furniture) = imported_tuple
     # let's read the model first
     model = imported_furniture.get('model')
     if model not in zip.namelist():
@@ -631,6 +713,10 @@ def _import_furniture(zip, floors, imported_furniture):
     _add_furniture_common_attributes(furniture, imported_furniture)
     _add_piece_of_furniture_common_attributes(furniture, imported_furniture)
     _add_piece_of_furniture_horizontal_rotation_attributes(furniture, imported_furniture)
+
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
+
     return furniture
 
 def _get_mesh_from_model(zip, model, materials):
@@ -794,16 +880,34 @@ def _import_materials(imported_furniture):
     return materials
 
 def _import_lights(home, zip, floors):
-    list(map(partial(_import_light, zip, floors), home.findall('light')))
+    list(map(partial(_import_light, zip, floors), enumerate(home.findall('light'))))
 
-def _import_light(zip, floors, imported_light):
-    light_appliance = _import_furniture(zip, floors, imported_light)
+def _import_light(zip, floors, imported_tuple):
+    """Creates and returns a Render light from the imported_light object
+
+    Args:
+        zip (ZipFile): the Zip containing the Mesh file
+        floors (list): the list of imported levels
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
+
+    Returns:
+        Mesh: the newly created object
+    """
+    light_appliance = _import_furniture(zip, floors, imported_tuple)
+
+    (i, imported_light) = imported_tuple
 
     _add_property(light_appliance, "App::PropertyFloat", "power", "The power of the light")
     light_appliance.power = float(imported_light.get('power', 0.5))
     light_appliance.shType = 'light'
 
-    import Render
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
+
+    if not RENDER_AVAILABLE:
+        return None
+
     light_source = imported_light.findall('lightSource')
     x = float(light_source.get('x'))
     y = float(light_source.get('y'))
@@ -823,9 +927,24 @@ def _import_light(zip, floors, imported_light):
     return light
 
 def _import_observer_cameras(home):
-    return list(map(partial(_import_observer_camera), home.findall('observerCamera')))
+    if not RENDER_AVAILABLE:
+        return []
+    return list(map(partial(_import_observer_camera), enumerate(home.findall('observerCamera'))))
 
-def _import_observer_camera(imported_camera):
+def _import_observer_camera(i, imported_tuple):
+    """Creates and returns a Render Camera from the imported_camera object
+
+    Args:
+        zip (ZipFile): the Zip containing the Mesh file
+        floors (list): the list of imported levels
+        imported_tuple (tuple): a tuple containing the index and the 
+            dict object containg the characteristics of the new object
+
+    Returns:
+        Mesh: the newly created object
+    """
+    (i, imported_camera) = imported_tuple
+
     x = float(imported_camera.get('x'))
     y = float(imported_camera.get('y'))
     z = float(imported_camera.get('z'))
@@ -834,7 +953,6 @@ def _import_observer_camera(imported_camera):
     # ¿How to convert fov to FocalLength?
     fieldOfView = float(imported_camera.get('fieldOfView'))
 
-    import Render
     camera, feature, _ = Render.Camera.create()
     feature.Label = imported_camera.get('name', 'ObserverCamera')
     feature.Placement.Base = _coord_sh2fc(FreeCAD.Vector(x,y,z))
@@ -856,6 +974,9 @@ def _import_observer_camera(imported_camera):
     feature.fixedSize = bool(imported_camera.get('fixedSize', False))
 
     _add_camera_common_attributes(feature, imported_camera)
+
+    if i % 5 and FreeCAD.GuiUp:
+        FreeCADGui.updateGui()
 
     return camera
 

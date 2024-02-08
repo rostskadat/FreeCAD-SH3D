@@ -90,7 +90,7 @@ class _CommandImport:
         """
         self._onSelectFile("SweetHome 3D Files (*.sh3d)", "LastSH3DSelectDirname", "SH3DFilename", _CommandImport.updateSH3DFields)
 
-    def onCsvFilenameChanged(self, filename):
+    def onSH3DFilenameChanged(self, filename):
         """Callback when the user changes the filename
         """
         self._onFilenameChanged(filename, "LastSH3DSelectDirname", "SH3DFilename", _CommandImport.updateSH3DFields)
@@ -138,8 +138,8 @@ class _CommandImport:
         self.dialog.status.setVisible(True)
         try:
             sh3d.import_sh3d(self.SH3DFilename, self.dialog.progressBar, self.dialog.status)
-        except:
-            FreeCAD.Console.PrintError("No active document. Aborting\n")
+        except Exception as e:
+            FreeCAD.Console.PrintError(str(e))
         self.dialog.progressBar.setVisible(False)
 
     def onClose(self):
