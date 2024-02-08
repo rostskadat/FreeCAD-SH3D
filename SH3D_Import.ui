@@ -38,9 +38,6 @@
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_9"/>
-     </item>
-     <item>
       <layout class="QFormLayout" name="formLayout_4">
        <item row="0" column="0">
         <widget class="QLabel" name="label_20">
@@ -78,8 +75,48 @@
        </item>
        <item row="1" column="1">
         <widget class="QCheckBox" name="joinWall">
+         <property name="toolTip">
+          <string>Modify the wall to make them join properly</string>
+         </property>
          <property name="text">
           <string>Join walls</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QCheckBox" name="importFurnitures">
+         <property name="toolTip">
+          <string>Whether to import the model's furnitures</string>
+         </property>
+         <property name="text">
+          <string>Import furnitures</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="importLights">
+         <property name="toolTip">
+          <string>Whether to import the model's lights.</string>
+         </property>
+         <property name="text">
+          <string>Import lights (requires Render)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QCheckBox" name="importCameras">
+         <property name="toolTip">
+          <string>Whether to import the model's cameras</string>
+         </property>
+         <property name="text">
+          <string>Import cameras (requires Render)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QCheckBox" name="importDoors">
+         <property name="text">
+          <string>Import doors</string>
          </property>
         </widget>
        </item>

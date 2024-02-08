@@ -19,31 +19,25 @@
 #*                                                                         *
 #***************************************************************************
 
-
-#\cond
 import os
 import FreeCAD
 import FreeCADGui
 import sh3d
 from PySide2 import QtGui, QtWidgets
+from PySide.QtCore import QT_TRANSLATE_NOOP
 
-if FreeCAD.GuiUp:
-    import FreeCADGui
-    from draftutils.translate import translate
-    from PySide.QtCore import QT_TRANSLATE_NOOP
-else:
-    # \cond
-    def translate(ctxt,txt):
-        return txt
-    def QT_TRANSLATE_NOOP(ctxt,txt):
-        return txt
-    # \endcond
 
-class _CommandImport:
+class SH3D_Import:
     """SweetHome3D Import command definition
     """
     def GetResources(self):
-        return {'Pixmap'  : 'SH3D_Import',
+        __dirname__ = os.path.join(FreeCAD.getResourceDir(), "Mod", "FreeCAD-SH3D")
+        if not os.path.isdir(__dirname__):
+            __dirname__ = os.path.join(FreeCAD.getUserAppDataDir(), "Mod", "FreeCAD-SH3D")
+        if not os.path.isdir(__dirname__):
+            FreeCAD.Console.PrintError("Failed to determine the install location of the SweetHome3D workbench. Check your installation.\n")
+
+        return {'Pixmap'  : os.path.join(__dirname__, "Resources", "icons", "SH3D_Import.svg"),
                 'MenuText': QT_TRANSLATE_NOOP("SH3D","Import SweetHome3D files."),
                 'Accel': "I, S",
                 'ToolTip': QT_TRANSLATE_NOOP("SH3D","Import SweetHome3D files.")}
@@ -72,9 +66,6 @@ class _CommandImport:
 
         self.updateSH3DFields()
 
-        self.dialog.btnImport.setIcon(
-            QtGui.QIcon.fromTheme("edit-undo", QtGui.QIcon(":/Resources/icons/SH3D_Import.svg"))
-        )
         # center the dialog over the FreeCAD window
         mw = FreeCADGui.getMainWindow()
         self.dialog.move(
@@ -88,12 +79,12 @@ class _CommandImport:
     def onSH3DSelectFile(self):
         """Callback to open the file picker
         """
-        self._onSelectFile("SweetHome 3D Files (*.sh3d)", "LastSH3DSelectDirname", "SH3DFilename", _CommandImport.updateSH3DFields)
+        self._onSelectFile("SweetHome 3D Files (*.sh3d)", "LastSH3DSelectDirname", "SH3DFilename", SH3D_Import.updateSH3DFields)
 
     def onSH3DFilenameChanged(self, filename):
         """Callback when the user changes the filename
         """
-        self._onFilenameChanged(filename, "LastSH3DSelectDirname", "SH3DFilename", _CommandImport.updateSH3DFields)
+        self._onFilenameChanged(filename, "LastSH3DSelectDirname", "SH3DFilename", SH3D_Import.updateSH3DFields)
 
     def _onSelectFile(self, file_type, pref_name, attr_name, upd_function):
         """Call the file picker for the specified file.
@@ -136,14 +127,25 @@ class _CommandImport:
     def onImport(self):
         self.dialog.progressBar.setVisible(True)
         self.dialog.status.setVisible(True)
-        try:
-            sh3d.import_sh3d(self.SH3DFilename, self.dialog.progressBar, self.dialog.status)
-        except Exception as e:
-            FreeCAD.Console.PrintError(str(e))
+        # try:
+        sh3d.import_sh3d(
+                self.SH3DFilename, 
+                self.dialog.joinWall.isChecked(),
+                self.dialog.importDoors.isChecked(),
+                self.dialog.importFurnitures.isChecked(),
+                self.dialog.importLights.isChecked(),
+                self.dialog.importCameras.isChecked(),
+                self.dialog.progressBar, 
+                self.dialog.status)
+        # except Exception as e:
+        #     FreeCAD.Console.PrintError(str(e))
         self.dialog.progressBar.setVisible(False)
 
     def onClose(self):
+        pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
+        pref.SetInt("WindowWidth", self.dialog.frameSize().width())
+        pref.SetInt("WindowHeight", self.dialog.frameSize().height())
         self.dialog.done(0)
 
 if FreeCAD.GuiUp:
-    FreeCADGui.addCommand('SH3D_Import', _CommandImport())
+    FreeCADGui.addCommand('SH3D_Import', SH3D_Import())

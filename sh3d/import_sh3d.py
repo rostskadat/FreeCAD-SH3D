@@ -49,17 +49,23 @@ except:
     FreeCAD.Console.PrintWarning("Render is not available. Not creating any lights.\n")
     RENDER_AVAILABLE = False
 
-def import_sh3d(filename, progress_bar=None, status=None):
+def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_bar=None, status=None):
     """Import a SweetHome 3D file into the current document.
 
     Args:
         filename (str): the filename of the document to import 
+        join_wall (bool, optional): whether to join walls. Defaults to True.
+        import_doors (bool, optional): whether to import doors. Defaults to True.
+        import_furnitures (bool, optional): whether to import furnitures. Defaults to True.
+        import_lights (bool, optional): whether to import lights. Defaults to True.
+        import_cameras (bool, optional): whether to import cameras. Defaults to True.
         progress_bar (QProgressBar, optional): the progress bar to update. Defaults to None.
         status (QLabel, optional): the status widget. Defaults to None.
 
     Raises:
         ValueError: If the document is an invalid SweetHome 3D document
     """
+
     with ZipFile(filename, 'r') as zip:
         entries = zip.namelist()
         if "Home.xml" not in entries:
@@ -68,9 +74,12 @@ def import_sh3d(filename, progress_bar=None, status=None):
 
         document = FreeCAD.ActiveDocument
         document.addObject("App::DocumentObjectGroup","Baseboards")
-        document.addObject("App::DocumentObjectGroup","Cameras")
-        document.addObject("App::DocumentObjectGroup","Furnitures")
-        document.addObject("App::DocumentObjectGroup","Lights")
+        if import_furnitures:
+            document.addObject("App::DocumentObjectGroup","Furnitures")
+        if import_lights:
+            document.addObject("App::DocumentObjectGroup","Lights")
+        if import_cameras:
+            document.addObject("App::DocumentObjectGroup","Cameras")
 
         _set_progress(progress_bar, 0)
         _set_status(status, "Importing levels ...")
@@ -86,16 +95,20 @@ def import_sh3d(filename, progress_bar=None, status=None):
         _set_status(status, "Importing walls ...")
         _import_walls(home, floors)
         _set_progress(progress_bar, 30)
-        _set_status(status, "Importing doors ...")
-        _import_doors(home, floors)
+        if import_doors:
+            _set_status(status, "Importing doors ...")
+            _import_doors(home, floors)
         _set_progress(progress_bar, 40)
-        _set_status(status, "Importing furnitues ...")
-        _import_furnitures(home, zip, floors)
+        if import_furnitures:
+            _set_status(status, "Importing furnitues ...")
+            _import_furnitures(home, zip, floors)
         _set_progress(progress_bar, 50)
-        _set_status(status, "Importing lights ...")
-        _import_lights(home, zip, floors)
+        if import_lights:
+            _set_status(status, "Importing lights ...")
+            _import_lights(home, zip, floors)
         _set_progress(progress_bar, 60)
-        _set_status(status, "Importing cameras ...")
+        if import_cameras:
+            _set_status(status, "Importing cameras ...")
         _import_observer_cameras(home)
 
         _set_progress(progress_bar, 70)
@@ -908,21 +921,21 @@ def _import_light(zip, floors, imported_tuple):
     if not RENDER_AVAILABLE:
         return None
 
-    light_source = imported_light.findall('lightSource')
-    x = float(light_source.get('x'))
-    y = float(light_source.get('y'))
-    z = float(light_source.get('z'))
-    diameter = float(light_source.get('diameter'))
-    color = light_source.get('color')
-    light, feature, _ = Render.PointLight.create()
-    feature.Label = light_appliance.Label
-    feature.Placement.Base = _coord_sh2fc(FreeCAD.Vector(x,y,z))
-    feature.Radius = _dim_sh2fc(diameter / 2)
-    feature.Color = _hex2rgb(color)
-    FreeCAD.ActiveDocument.Lights.addObject(feature)
+    for light_source in imported_light.findall('lightSource'):
+        x = float(light_source.get('x'))
+        y = float(light_source.get('y'))
+        z = float(light_source.get('z'))
+        diameter = float(light_source.get('diameter'))
+        color = light_source.get('color')
+        light, feature, _ = Render.PointLight.create()
+        feature.Label = light_appliance.Label
+        feature.Placement.Base = _coord_sh2fc(FreeCAD.Vector(x,y,z))
+        feature.Radius = _dim_sh2fc(diameter / 2)
+        feature.Color = _hex2rgb(color)
+        FreeCAD.ActiveDocument.Lights.addObject(feature)
 
-    _add_property(feature, "App::PropertyString", "shType", "The element type")
-    feature.shType = 'lightSource'
+        _add_property(feature, "App::PropertyString", "shType", "The element type")
+        feature.shType = 'lightSource'
 
     return light
 
@@ -931,7 +944,7 @@ def _import_observer_cameras(home):
         return []
     return list(map(partial(_import_observer_camera), enumerate(home.findall('observerCamera'))))
 
-def _import_observer_camera(i, imported_tuple):
+def _import_observer_camera(imported_tuple):
     """Creates and returns a Render Camera from the imported_camera object
 
     Args:
