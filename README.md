@@ -14,14 +14,20 @@ Sweet Home 3D is a free interior design application which helps you draw the pla
 
 ## Usage
 
-## Testing
-
-In FreeCAD console:
+In FreeCAD console, simply call the `SH3D_Import` command:
 
 ```python
 import SH3D_Import
 Gui.runCommand('SH3D_Import',0)
 ```
+
+![SweetHome3D Import Howto](Resources/docs/usage.gif "SweetHome3D Import Howto")
+
+Alternatively you can customize your toolbar and add the `Import SweetHome3D files` from the `SH3D_Import` package
+
+![SweetHome3D Toolbar](Resources/docs/toolbar.gif "SweetHome3D Import Toolbar")
+
+## Testing
 
 ## Contributing
 

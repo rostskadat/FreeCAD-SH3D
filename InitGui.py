@@ -29,15 +29,16 @@ __vers__ ="py3.01"
 import os
 import FreeCAD
 import FreeCADGui
+from PySide.QtCore import QT_TRANSLATE_NOOP
 
 import sys
+
+from draftutils.init_tools import init_toolbar, init_menu
 
 class SweetHome3DWorkbench(FreeCADGui.Workbench):
     """The SweetHome3D workbench definition."""
 
     def __init__(self):
-        def QT_TRANSLATE_NOOP(context, text):
-            return text
 
         __dirname__ = os.path.join(FreeCAD.getResourceDir(), "Mod", "FreeCAD-SH3D")
         if not os.path.isdir(__dirname__):
@@ -53,11 +54,6 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
 
     def Initialize(self):
         """When the workbench is first loaded."""
-
-        def QT_TRANSLATE_NOOP(context, text):
-            return text
-
-        from draftutils.init_tools import init_toolbar, init_menu
         import SH3D_Import
 
         # Set up toolbars

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>GeoDataImport</class>
- <widget class="QDialog" name="GeoDataImport">
+ <class>SH3DImport</class>
+ <widget class="QDialog" name="SH3DImport">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -20,10 +20,10 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Import Geo Data</string>
+   <string>Import SweetHome3D file</string>
   </property>
   <property name="toolTip">
-   <string>Import Geo Data from different sources</string>
+   <string>Import SweetHome3D file</string>
   </property>
   <property name="locale">
    <locale language="English" country="UnitedStates"/>
@@ -81,6 +81,9 @@
          <property name="text">
           <string>Join walls</string>
          </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
         </widget>
        </item>
        <item row="3" column="1">
@@ -90,6 +93,9 @@
          </property>
          <property name="text">
           <string>Import furnitures</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -117,6 +123,9 @@
         <widget class="QCheckBox" name="importDoors">
          <property name="text">
           <string>Import doors</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -160,7 +169,7 @@
        <item>
         <widget class="QPushButton" name="btnImport">
          <property name="toolTip">
-          <string>Import GeoData from the selected service</string>
+          <string>Import SweetHome3D file</string>
          </property>
          <property name="text">
           <string>Import</string>

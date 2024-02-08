@@ -92,9 +92,6 @@ def read(filename):
     # TODO: Should load the preferences, such as default slab thickness, or
     #   whether to create default project / site and building. The IFC export
     #   should be a good starting point.
-    pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SweetHome3D")
-    default_ = pref.GetInt("ColladaMesher",0)
-
     if not FreeCAD.ActiveDocument:
         FreeCAD.Console.PrintError("No active document. Aborting\n")
         return

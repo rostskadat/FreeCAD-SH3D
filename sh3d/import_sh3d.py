@@ -109,7 +109,7 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
         _set_progress(progress_bar, 60)
         if import_cameras:
             _set_status(status, "Importing cameras ...")
-        _import_observer_cameras(home)
+            _import_observer_cameras(home)
 
         _set_progress(progress_bar, 70)
         _set_status(status, "Creating Arch Site ...")
@@ -126,6 +126,7 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
 
         _set_status(status, "Successfully imported data.")
         _set_progress(progress_bar, 100)
+        
 
     FreeCAD.activeDocument().recompute()
     if FreeCAD.GuiUp:
@@ -577,7 +578,6 @@ def _import_door(floors, imported_tuple):
 
     window = _create_window(floor, imported_door)
     if not window:
-        FreeCAD.Console.PrintError(f"Could not create window from '{imported_door.get('id')}'. Skipping\n")
         return None
 
     _add_property(window, "App::PropertyString", "shType", "The element type")
@@ -616,6 +616,9 @@ def _import_door(floors, imported_tuple):
 def _create_window(floor, imported_door):
 
     wall = _get_wall(floor, imported_door)
+    if not wall:
+        FreeCAD.Console.PrintWarning(f"No wall found for door {imported_door.get('id')}. Skipping!\n")
+        return None
 
     # NOTE: the window is actually offset by the model's width on X axis
     x = float(imported_door.get('x')) - float(imported_door.get('width')) / 2
@@ -654,7 +657,7 @@ def _create_window(floor, imported_door):
         o2 = w1 / 2
         window = Arch.makeWindowPreset('Simple door', width=width, height=height, h1=h1, h2=h2, h3=h3, w1=w1, w2=w2, o1=o1, o2=o2, placement=pl)
     else:
-        print(f"Unknown catalogId {catalog_id} for door {imported_door.get('id')}. Skipping")
+        FreeCAD.Console.PrintWarning(f"Unknown catalogId {catalog_id} for door {imported_door.get('id')}. Skipping\n")
         return None
     
     window.Normal = pl.Rotation.multVec(FreeCAD.Vector(0, 0, -1))
@@ -683,7 +686,6 @@ def _get_wall(floor, imported_door):
             bb = object.Shape.BoundBox
             if bb.isInside(v0) or bb.isInside(v1) or bb.isInside(v2):
                 return object
-    print (f"No wall found for door {imported_door.get('id')}")
     return None
 
 def _import_furnitures(home, zip, floors):

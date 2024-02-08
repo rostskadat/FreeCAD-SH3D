@@ -127,7 +127,17 @@ class SH3D_Import:
     def onImport(self):
         self.dialog.progressBar.setVisible(True)
         self.dialog.status.setVisible(True)
-        # try:
+
+        FreeCAD.ActiveDocument.openTransaction("SH3D_Import")
+        FreeCADGui.doCommand("# import sh3d")
+        fn = self.SH3DFilename
+        join_wall = self.dialog.joinWall.isChecked()
+        import_doors = self.dialog.importDoors.isChecked()
+        import_furnitures = self.dialog.importFurnitures.isChecked()
+        import_lights = self.dialog.importLights.isChecked()
+        import_cameras = self.dialog.importCameras.isChecked()
+        cmd =  f"# sh3d.import_sh3d('{fn}', {join_wall}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
+        FreeCADGui.doCommand(cmd)
         sh3d.import_sh3d(
                 self.SH3DFilename, 
                 self.dialog.joinWall.isChecked(),
@@ -137,8 +147,9 @@ class SH3D_Import:
                 self.dialog.importCameras.isChecked(),
                 self.dialog.progressBar, 
                 self.dialog.status)
-        # except Exception as e:
-        #     FreeCAD.Console.PrintError(str(e))
+
+        FreeCAD.ActiveDocument.commitTransaction()
+        FreeCAD.ActiveDocument.recompute()
         self.dialog.progressBar.setVisible(False)
 
     def onClose(self):
