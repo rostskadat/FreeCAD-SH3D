@@ -1,14 +1,12 @@
-# FreeCAD SweetHome3d add-on
+# FreeCAD SweetHome3D add-on
 
 [![FreeCAD Addon manager status](https://img.shields.io/badge/FreeCAD%20addon%20manager-available-brightgreen)](https://github.com/FreeCAD/FreeCAD-addons)
 
-A [FreeCAD](https://www.freecadweb.org) workbench to produce high-quality
-rendered images from your FreeCAD document, using open-source external
-rendering engines.
+A [FreeCAD](https://www.freecadweb.org) workbench to import SweetHome3D files
 
 ## Introduction
 
-Sweet Home 3D is a free interior design application which helps you draw the plan of your house, arrange furniture on it and visit the results in 3D.
+SweetHome3D is a free interior design application which helps you draw the plan of your house, arrange furniture on it and visit the results in 3D.
 
 ## Installation
 
