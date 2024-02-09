@@ -1,0 +1,69 @@
+
+[general]
+name=SH3D Workbench
+email=rostskadat@gmail.com
+author=Julien Masnada
+FreeCADMinimumVersion=0.20.xxxx
+
+description=Support for SweetHome3D in FreeCAD
+    import data from SweetHome3D
+about=SweetHome3D import support for FreeCAD
+
+version=version 0.0.1
+
+tracker=https://github.com/rostskadat/FreeCAD-SH3D/issues
+repository=https://github.com/rostskadat/FreeCAD-SH3D.git
+license=GNU LGPL
+
+; end of mandatory metadata
+
+; start of optional metadata
+;category=Raster
+changelog=
+    0.0.1 - First release relase
+
+tags=sweethome3d,import
+
+; these metadata can be empty, they will eventually become mandatory.
+homepage=http://github.com/rostskadat/FreeCAD-SH3D
+
+; icon size should be: ?????
+icon=Resources/icons/GeoData_Workbench.svg
+#screenshot=screenshot.png
+
+; animated gifs are recommended
+screencast=Resources/docs/usage.gif
+
+; experimental flag (applies to the single version)
+experimental=True
+
+; deprecated flag (applies to the whole plugin and not only to the uploaded version)
+deprecated=False
+
+; if empty, it will be automatically set to major version + .99
+:FreeCADMaximumVersion=0.17.xxxx
+
+
+
+; start of dependency section
+[dependencies]
+workbenches=Arch, Draft, Mesh
+
+; specific python version we need to work with?
+; python=2.7.6
+
+; add 3rd party python libs
+;pylibs=numpy vX.y.z
+;pylibs=scipy vX.y.z
+
+; add 3rd party optional python libs
+;optionalpylibs=scikit vX.y.z
+
+; add 3rd party applications
+;3rdparty=VTK vX.y.z
+;3rdparty=OCC v7.1.1
+
+; add dependencies of other FC addons
+;FCaddon=assembly2@g3425fdr,part-o-magic@f32sed43
+
+; end of dependency section
