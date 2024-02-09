@@ -32,8 +32,6 @@ import FreeCADGui
 
 import sys
 
-from draftutils.init_tools import init_toolbar, init_menu
-
 class SweetHome3DWorkbench(FreeCADGui.Workbench):
     """The SweetHome3D workbench definition."""
 
@@ -57,6 +55,7 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
         """When the workbench is first loaded."""
         from PySide.QtCore import QT_TRANSLATE_NOOP
 
+        from draftutils.init_tools import init_toolbar, init_menu
         import SH3D
 
         # Set up toolbars
