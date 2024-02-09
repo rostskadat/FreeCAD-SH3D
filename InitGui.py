@@ -29,7 +29,6 @@ __vers__ ="py3.01"
 import os
 import FreeCAD
 import FreeCADGui
-#from PySide.QtCore import QT_TRANSLATE_NOOP
 
 import sys
 
@@ -39,8 +38,7 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
     """The SweetHome3D workbench definition."""
 
     def __init__(self):
-        def QT_TRANSLATE_NOOP(context, text):
-            return text
+        from PySide.QtCore import QT_TRANSLATE_NOOP
 
         __dirname__ = os.path.join(FreeCAD.getResourceDir(), "Mod", "FreeCAD-SH3D")
         if not os.path.isdir(__dirname__):
@@ -57,18 +55,14 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
 
     def Initialize(self):
         """When the workbench is first loaded."""
-        def QT_TRANSLATE_NOOP(context, text):
-            return text
+        from PySide.QtCore import QT_TRANSLATE_NOOP
 
-        try:
-            import SH3D
+        import SH3D
 
-            # Set up toolbars
-            self.toolbar = [ "SH3D_Import", ]
-            init_toolbar(self, QT_TRANSLATE_NOOP("SH3D", "SweetHome3D tools"), self.toolbar)
-            init_menu(self, QT_TRANSLATE_NOOP("SH3D", "SweetHome3D"), self.toolbar)
-        except Exception as e:
-            print(str(e))
+        # Set up toolbars
+        self.toolbar = [ "SH3D_Import", ]
+        init_toolbar(self, QT_TRANSLATE_NOOP("SH3D", "SweetHome3D tools"), self.toolbar)
+        init_menu(self, QT_TRANSLATE_NOOP("SH3D", "SweetHome3D"), self.toolbar)
 
         # FreeCADGui.addIconPath(":/icons")
         # FreeCADGui.addLanguagePath(":/translations")
@@ -89,8 +83,4 @@ class SweetHome3DWorkbench(FreeCADGui.Workbench):
         """Type of workbench."""
         return "Gui::PythonWorkbench"
 
-try:
-    FreeCAD.Console.PrintLog("Adding SweetHome3DWorkbench ...\n")
-    FreeCADGui.addWorkbench(SweetHome3DWorkbench)
-except Exception as e:
-    FreeCAD.Console.PrintError("Failed to add SweetHome3DWorkbench ...\n")
+FreeCADGui.addWorkbench(SweetHome3DWorkbench)
