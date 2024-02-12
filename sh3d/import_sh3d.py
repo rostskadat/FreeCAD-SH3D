@@ -25,11 +25,9 @@ from zipfile import ZipFile
 
 import Arch
 import Draft
-import DraftVecUtils
 import FreeCAD
 import FreeCADGui
 import Mesh
-import Part
 import WorkingPlane
 
 import math
@@ -360,7 +358,7 @@ def _import_wall(floors, imported_tuple):
 def _make_straight_wall(floor, imported_wall):
     """Create a Arch Wall from a line. 
 
-    The constructed mesh has been will be a simple solid with the length width height found in imported_wall
+    The constructed wall will be a simple solid with the length width height found in imported_wall
 
     Args:
         floor (Arch::Structure): The floor the wall belongs to
@@ -384,64 +382,41 @@ def _make_straight_wall(floor, imported_wall):
     wall = Arch.makeWall(line)
 
     #wall.setExpression('Height', f"<<{floor}>>.height")
-    wall.Height = _dim_sh2fc(float(imported_wall.get('height', _dim_fc2sh(floor.Height))))
-    wall.Width = _dim_sh2fc(float(imported_wall.get('thickness')))
+    wall.Height = _dim_sh2fc(imported_wall.get('height', _dim_fc2sh(floor.Height)))
+    wall.Width = _dim_sh2fc(imported_wall.get('thickness'))
     wall.Normal = FreeCAD.Vector(0, 0, 1)
     return wall
 
 def _make_tappered_wall(floor, imported_wall):
-    """Create a Arch Wall from a mesh. 
-    
-    The constructed mesh has been will have different height at the begining and the end
-
-    Args:
-        floor (Arch::Structure): The floor the wall belongs to
-        imported_wall (dict): the dict object containg the characteristics of the new object
-
-    Returns:
-        Arch::Wall: the newly created wall
-    """
-
-    # in SH coord
+    #
+    # We draw the vertical profile of the wall and then we extrude the
+    # resulting shape. Finally we transform this shape into an Arch::Wall
+    #
     x_start = float(imported_wall.get('xStart'))
     y_start = float(imported_wall.get('yStart'))
-    z_start = _dim_fc2sh(floor.Placement.Base.z)
-    v_start = FreeCAD.Vector(x_start, y_start, z_start)
-
     x_end = float(imported_wall.get('xEnd'))
     y_end = float(imported_wall.get('yEnd'))
-    v_end = FreeCAD.Vector(x_end, y_end, z_start)
+    z = _dim_fc2sh(floor.Placement.Base.z)
+    
+    height_at_start = float(imported_wall.get('height', _dim_fc2sh(floor.Height)))
+    height_at_end = float(imported_wall.get('heightAtEnd', height_at_start))
 
-    v_length = v_end - v_start
-    v_center = v_start + v_length / 2
-    length = v_start.distanceToPoint(v_end)
-
-    thickness = float(imported_wall.get('thickness'))
-
-    height = float(imported_wall.get('height', _dim_fc2sh(floor.Height)))
-    height_at_end = float(imported_wall.get('heightAtEnd', height))
-
-    # NOTE: FreeCAD.Vector.getAngle return unsigned angle, using 
-    #   DraftVecUtils.angle instead
-    phi = DraftVecUtils.angle(FreeCAD.Vector(1,0,0), v_center)
-    theta = DraftVecUtils.angle(v_center, v_length)
-
-    # in FC coordinate
-    mesh = Mesh.createBox(1,1,1)
-    scale = _coord_sh2fc(FreeCAD.Vector(length, thickness, height))
-    transform = FreeCAD.Matrix()
-    transform.move(FreeCAD.Vector(0,0,0.5)) # bring the box up a notch
-    transform.scale(scale)
-    transform.rotateZ(phi+theta)
-    transform.move(_coord_sh2fc(v_center))
-    mesh.transform(transform)
-
-    mesh.movePoint(2, _coord_sh2fc(FreeCAD.Vector(0,0,height_at_end-height)))
-    mesh.movePoint(5, _coord_sh2fc(FreeCAD.Vector(0,0,height_at_end-height)))
-
-    feature = FreeCAD.ActiveDocument.addObject("Mesh::Feature", "Mesh")
-    feature.Mesh = mesh
-    wall = Arch.makeWall(feature)
+    points = [
+        _coord_sh2fc(FreeCAD.Vector(x_start, y_start, z)),
+        _coord_sh2fc(FreeCAD.Vector(x_end, y_end, z)),
+        _coord_sh2fc(FreeCAD.Vector(x_end, y_end, z+height_at_end)),
+        _coord_sh2fc(FreeCAD.Vector(x_start, y_start, z+height_at_start)),
+    ]
+    profile = Draft.make_wire(points, closed=True, face=True)
+    width = _dim_sh2fc(imported_wall.get('thickness'))
+    extrusion = FreeCAD.ActiveDocument.addObject('Part::Extrusion', imported_wall.get('id'))
+    extrusion.Base = profile
+    extrusion.DirMode = "Custom"
+    extrusion.Dir = WorkingPlane.DraftGeomUtils.getNormal(points)
+    extrusion.LengthFwd = width
+    extrusion.Symmetric = True
+    profile.Visibility = False
+    wall = Arch.makeWall(extrusion)
     return wall
 
 def _make_arqued_wall(floor, imported_wall):
