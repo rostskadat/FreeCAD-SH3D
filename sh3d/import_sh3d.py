@@ -40,7 +40,7 @@ import xml.etree.ElementTree as ET
 # SweetHome3D is in cm while FreeCAD is in mm
 FACTOR = 10
 
-DEBUG = False
+DEBUG = True
 
 RENDER_AVAILABLE = True
 
@@ -601,32 +601,42 @@ def _import_door(floors, imported_tuple):
     return window
 
 def _create_window(floor, imported_door):
-
-    wall = _get_wall(floor, imported_door)
-    if not wall:
-        FreeCAD.Console.PrintWarning(f"No wall found for door {imported_door.get('id')}. Skipping!\n")
-        return None
-
+    # The window in SweetHome3D s is defined with a width, depth, height. 
+    # Furthermore the (x.y.z) is the center point of the lower face of the
+    # window. In FC the placement is defined on the face of the whole that 
+    # will contain the windows. The makes this calculation rather 
+    # cumbersome.
     x_center = float(imported_door.get('x'))
     y_center = float(imported_door.get('y'))
     z_center = float(imported_door.get('elevation', 0))
     z_center += _dim_fc2sh(floor.Placement.Base.z)
+
+    # This is the FC coordinate of the center point of the lower face of the
+    # window. This then needs to be moved to the proper face on the wall and
+    # offset properly with respect to the wall's face.
+    center = _coord_sh2fc(FreeCAD.Vector ( x_center, y_center, z_center ))
+
+    wall = _get_wall(center)
+    if not wall:
+        FreeCAD.Console.PrintWarning(f"No wall found for door {imported_door.get('id')}. Skipping!\n")
+        return None
 
     width = _dim_sh2fc(imported_door.get('width'))
     depth = _dim_sh2fc(imported_door.get('depth'))
     height = _dim_sh2fc(imported_door.get('height'))
     angle = float(imported_door.get('angle',0))
 
-    center = _coord_sh2fc(FreeCAD.Vector ( x_center, y_center, z_center ))
-
+    # this is the vector that allow me to go from the center to the corner
+    # of the bouding box. Note that the angle of the rotation is negated 
+    # because the y axis is reversed in SweetHome3D
     center2corner = FreeCAD.Vector( -width/2, -wall.Width/2, 0 )
-    center2corner = FreeCAD.Rotation( FreeCAD.Vector(0,0,1), math.degrees(angle) ).multVec(center2corner)
-    center2corner = center.add(center2corner)
+    center2corner = FreeCAD.Rotation( FreeCAD.Vector(0,0,1), math.degrees(-angle) ).multVec(center2corner)
 
+    corner = center.add(center2corner)
     pl = FreeCAD.Placement (
-        center2corner, # translation
-        FreeCAD.Rotation ( -math.degrees(angle), 0 , 90 ),  # rotation
-        FreeCAD.Vector ( 0, 0, 0 ) # rotation@coordinate
+        corner, # translation
+        FreeCAD.Rotation(math.degrees(-angle), 0 , 90 ),  # rotation
+        FreeCAD.Vector( 0, 0, 0 ) # rotation@coordinate
     )
 
     # NOTE: the windows are not imported as meshes, but we use a simple 
@@ -654,20 +664,20 @@ def _create_window(floor, imported_door):
     window.Hosts = [wall]
     return window
 
-def _get_wall(floor, imported_door):
-    x = float(imported_door.get('x'))
-    y_0 = float(imported_door.get('y'))# depends on angle as well
-    # y_1 = float(imported_door.get('y')) + float(imported_door.get('depth')) # depends on angle as well
-    # y_2 = float(imported_door.get('y')) - float(imported_door.get('depth')) # depends on angle as well
-    z = _dim_fc2sh(floor.Placement.Base.z) + float(imported_door.get('elevation', 0))
-    v0 = _coord_sh2fc(FreeCAD.Vector(x, y_0, z))
-    # v1 = _coord_sh2fc(FreeCAD.Vector(x, y_1, z))
-    # v2 = _coord_sh2fc(FreeCAD.Vector(x, y_2, z))
+def _get_wall(point):
+    """Returns the wall that contains the given point.
+
+    Args:
+        point (FreeCAD.Vector): the point to test for
+
+    Returns:
+        Arch::Wall: the wall that contains the given point
+    """
     for object in FreeCAD.ActiveDocument.Objects:
         if Draft.getType(object) == "Wall":
             bb = object.Shape.BoundBox
             try:
-                if bb.isInside(v0): # or bb.isInside(v1) or bb.isInside(v2):
+                if bb.isInside(point):
                     return object
             except FloatingPointError:
                 pass
