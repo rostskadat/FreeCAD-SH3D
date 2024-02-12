@@ -138,15 +138,17 @@ class SH3D_Import:
         import_cameras = self.dialog.importCameras.isChecked()
         cmd =  f"# sh3d.import_sh3d('{fn}', {join_wall}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
         FreeCADGui.doCommand(cmd)
-        sh3d.import_sh3d(
+        from importlib import reload
+        import sh3d.import_sh3d
+        reload(sh3d.import_sh3d)
+        sh3d.import_sh3d.import_sh3d(
                 self.SH3DFilename, 
                 self.dialog.joinWall.isChecked(),
                 self.dialog.importDoors.isChecked(),
                 self.dialog.importFurnitures.isChecked(),
                 self.dialog.importLights.isChecked(),
                 self.dialog.importCameras.isChecked(),
-                self.dialog.progressBar, 
-                self.dialog.status)
+                self.onImportProgress)
 
         FreeCAD.ActiveDocument.commitTransaction()
         FreeCAD.ActiveDocument.recompute()
@@ -157,6 +159,13 @@ class SH3D_Import:
         pref.SetInt("WindowWidth", self.dialog.frameSize().width())
         pref.SetInt("WindowHeight", self.dialog.frameSize().height())
         self.dialog.done(0)
+
+    def onImportProgress(self, progress, status):
+        if FreeCAD.GuiUp:
+            self.dialog.progressBar.setValue(progress)
+            if status:
+                self.dialog.status.setText(status)
+            FreeCADGui.updateGui()
 
 if FreeCAD.GuiUp:
     FreeCADGui.addCommand('SH3D_Import', SH3D_Import())

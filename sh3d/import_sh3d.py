@@ -29,6 +29,7 @@ import DraftVecUtils
 import FreeCAD
 import FreeCADGui
 import Mesh
+import Part
 import WorkingPlane
 
 import math
@@ -39,7 +40,7 @@ import xml.etree.ElementTree as ET
 # SweetHome3D is in cm while FreeCAD is in mm
 FACTOR = 10
 
-DEBUG = True
+DEBUG = False
 
 RENDER_AVAILABLE = True
 
@@ -49,7 +50,7 @@ except:
     FreeCAD.Console.PrintWarning("Render is not available. Not creating any lights.\n")
     RENDER_AVAILABLE = False
 
-def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_bar=None, status=None):
+def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_callback=None):
     """Import a SweetHome 3D file into the current document.
 
     Args:
@@ -59,12 +60,14 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
         import_furnitures (bool, optional): whether to import furnitures. Defaults to True.
         import_lights (bool, optional): whether to import lights. Defaults to True.
         import_cameras (bool, optional): whether to import cameras. Defaults to True.
-        progress_bar (QProgressBar, optional): the progress bar to update. Defaults to None.
-        status (QLabel, optional): the status widget. Defaults to None.
+        progress_callback (func): a function to set the progress porcentage and the status. Defaults to None.
 
     Raises:
         ValueError: If the document is an invalid SweetHome 3D document
     """
+    if not progress_callback:
+        def progress_callback(progress, status):
+            FreeCAD.Console.PrintLog(f"{status} ({progress}/100)\n")
 
     with ZipFile(filename, 'r') as zip:
         entries = zip.namelist()
@@ -81,38 +84,35 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
         if import_cameras:
             document.addObject("App::DocumentObjectGroup","Cameras")
 
-        _set_progress(progress_bar, 0)
-        _set_status(status, "Importing levels ...")
+        progress_callback(0, "Importing levels ...")
         if home.findall('level'):
             floors = _import_levels(home)
         else:
             floors = [_create_default_floor()]
 
-        _set_progress(progress_bar, 10)
-        _set_status(status, "Importing rooms ...")
+        progress_callback(10, "Importing rooms ...")
         _import_rooms(home, floors)
-        _set_progress(progress_bar, 20)
-        _set_status(status, "Importing walls ...")
+
+        progress_callback(20, "Importing walls ...")
         _import_walls(home, floors)
-        _set_progress(progress_bar, 30)
+
+        progress_callback(30, "Importing doors ...")
         if import_doors:
-            _set_status(status, "Importing doors ...")
             _import_doors(home, floors)
-        _set_progress(progress_bar, 40)
+
+        progress_callback(40, "Importing furnitues ...")
         if import_furnitures:
-            _set_status(status, "Importing furnitues ...")
             _import_furnitures(home, zip, floors)
-        _set_progress(progress_bar, 50)
+
+        progress_callback(50, "Importing lights ...")
         if import_lights:
-            _set_status(status, "Importing lights ...")
             _import_lights(home, zip, floors)
-        _set_progress(progress_bar, 60)
+
+        progress_callback(60, "Importing cameras ...")
         if import_cameras:
-            _set_status(status, "Importing cameras ...")
             _import_observer_cameras(home)
 
-        _set_progress(progress_bar, 70)
-        _set_status(status, "Creating Arch Site ...")
+        progress_callback(70, "Creating Arch::Site ...")
         building = Arch.makeBuilding(floors)
         #building.Label = home.find('label').find('text')
         Arch.makeSite([ building ])
@@ -120,29 +120,16 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
 
         # TODO: Should be set only when opening a file, not when importing
         document.Label = building.Label
-        document.CreatedBy = _get_sh3d_property(home, 'Author')
-        document.Comment = _get_sh3d_property(home, 'Copyright')
-        document.License = _get_sh3d_property(home, 'License')
+        document.CreatedBy = _get_sh3d_property(home, 'Author', '')
+        document.Comment = _get_sh3d_property(home, 'Copyright', '')
+        document.License = _get_sh3d_property(home, 'License', '')
 
-        _set_status(status, "Successfully imported data.")
-        _set_progress(progress_bar, 100)
+        progress_callback(100, "Successfully imported data.")
         
 
     FreeCAD.activeDocument().recompute()
     if FreeCAD.GuiUp:
         FreeCADGui.SendMsgToActiveView("ViewFit")        
-
-
-def _set_progress(progress_bar, value):
-    if FreeCAD.GuiUp and progress_bar:
-        progress_bar.setValue(value)
-
-
-def _set_status(status, text):
-    if FreeCAD.GuiUp and status:
-        status.setText(text)
-        FreeCADGui.updateGui()
-
 
 def _import_levels(home):
     """Returns all the levels found in the file.
@@ -154,7 +141,6 @@ def _import_levels(home):
         list: the list of imported floors
     """
     return list(map(_import_level, enumerate(home.findall('level'))))
-
 
 def _import_level(imported_tuple):
     """Creates and returns a Arch::Floor from the imported_level object
@@ -186,7 +172,7 @@ def _import_level(imported_tuple):
     floor.elevationIndex = int(imported_level.get('elevationIndex', 0))
     floor.ViewObject.Visibility = imported_level.get('visible', 'false') == 'true'
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
         FreeCADGui.SendMsgToActiveView("ViewFit")
 
@@ -300,7 +286,7 @@ def _import_room(floors, imported_tuple):
 
     floor.addObject(slab)
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
         FreeCADGui.SendMsgToActiveView("ViewFit")
 
@@ -356,6 +342,7 @@ def _import_wall(floors, imported_tuple):
     _add_property(wall, "App::PropertyFloat", "rightSideShininess", "The wall's right hand side shininess")
 
     wall.shType = 'wall'
+    wall.id = imported_wall.get('id')
     wall.wallAtStart = imported_wall.get('wallAtStart', '')
     wall.wallAtEnd = imported_wall.get('wallAtEnd', '')
     wall.pattern = imported_wall.get('pattern', '')
@@ -364,7 +351,7 @@ def _import_wall(floors, imported_tuple):
 
     floor.addObject(wall)
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
         FreeCADGui.SendMsgToActiveView("ViewFit")
 
@@ -608,7 +595,7 @@ def _import_door(floors, imported_tuple):
     window.cutOutShape = str(imported_door.get('cutOutShape', ''))
     window.boundToWall = bool(imported_door.get('boundToWall', True))
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
 
     return window
@@ -620,72 +607,70 @@ def _create_window(floor, imported_door):
         FreeCAD.Console.PrintWarning(f"No wall found for door {imported_door.get('id')}. Skipping!\n")
         return None
 
-    # NOTE: the window is actually offset by the model's width on X axis
-    x = float(imported_door.get('x')) - float(imported_door.get('width')) / 2
-    y = float(imported_door.get('y')) + float(imported_door.get('depth')) / 2
-    elevation = float(imported_door.get('elevation', 0))
-    z = _coord_sh2fc(FreeCAD.Vector(x, y , _dim_fc2sh(floor.Placement.Base.z)+elevation))
+    x_center = float(imported_door.get('x'))
+    y_center = float(imported_door.get('y'))
+    z_center = float(imported_door.get('elevation', 0))
+    z_center += _dim_fc2sh(floor.Placement.Base.z)
 
-    depth = _dim_sh2fc(float(imported_door.get('depth')))
-    width = _dim_sh2fc(float(imported_door.get('width')))
-    height = _dim_sh2fc(float(imported_door.get('height')))
+    width = _dim_sh2fc(imported_door.get('width'))
+    depth = _dim_sh2fc(imported_door.get('depth'))
+    height = _dim_sh2fc(imported_door.get('height'))
+    angle = float(imported_door.get('angle',0))
 
-    # How to choose the face???
-    pl = WorkingPlane.getPlacementFromFace(wall.Shape.Faces[0])
-    pl.Base = z
+    center = _coord_sh2fc(FreeCAD.Vector ( x_center, y_center, z_center ))
+
+    center2corner = FreeCAD.Vector( -width/2, -wall.Width/2, 0 )
+    center2corner = FreeCAD.Rotation( FreeCAD.Vector(0,0,1), math.degrees(angle) ).multVec(center2corner)
+    center2corner = center.add(center2corner)
+
+    pl = FreeCAD.Placement (
+        center2corner, # translation
+        FreeCAD.Rotation ( -math.degrees(angle), 0 , 90 ),  # rotation
+        FreeCAD.Vector ( 0, 0, 0 ) # rotation@coordinate
+    )
 
     # NOTE: the windows are not imported as meshes, but we use a simple 
     #   correspondance between a catalog ID and a specific window preset from 
     #   the parts library.
     catalog_id = imported_door.get('catalogId')
-    if catalog_id in ("eTeks#fixedWindow85x123", "eTeks#window85x123", "eTeks#doubleWindow126x123"):
-        h1 = 70
-        h2 = 30
-        h3 = 0
-        w1 = min(depth, wall.Width)
-        w2 = 40
-        o1 = 0
-        o2 = w1 / 2
-        window = Arch.makeWindowPreset('Open 2-pane', width=width, height=height, h1=h1, h2=h2, h3=h3, w1=w1, w2=w2, o1=o1, o2=o2, placement=pl)
-    elif catalog_id in ("eTeks#frontDoor", "eTeks#roundedDoor"):
-        h1 = 70
-        h2 = 30
-        h3 = h1+h2
-        w1 = min(depth, wall.Width)
-        w2 = 40
-        o1 = 0
-        o2 = w1 / 2
-        window = Arch.makeWindowPreset('Simple door', width=width, height=height, h1=h1, h2=h2, h3=h3, w1=w1, w2=w2, o1=o1, o2=o2, placement=pl)
+    if catalog_id in ("eTeks#fixedWindow85x123", "eTeks#window85x123", "eTeks#doubleWindow126x123", "eTeks#doubleWindow126x163", "eTeks#doubleFrenchWindow126x200", "eTeks#window85x163", "eTeks#frenchWindow85x200", "eTeks#doubleHungWindow80x122", "eTeks#roundWindow", "eTeks#halfRoundWindow"):
+        windowtype = 'Open 2-pane'
+    elif catalog_id in ("Scopia#window_2x1_with_sliders", "Scopia#window_2x3_arched", "Scopia#window_2x4_arched", "eTeks#sliderWindow126x200"):
+        windowtype = 'Sliding 2-pane'
+    elif catalog_id in ("eTeks#frontDoor", "eTeks#roundedDoor", "eTeks#door", "eTeks#doorFrame", "eTeks#roundDoorFrame"):
+        windowtype = 'Simple door'
     else:
         FreeCAD.Console.PrintWarning(f"Unknown catalogId {catalog_id} for door {imported_door.get('id')}. Skipping\n")
         return None
-    
-    window.Normal = pl.Rotation.multVec(FreeCAD.Vector(0, 0, -1))
+
+    h1 = 10
+    h2 = 10
+    h3 = 0
+    w1 = min(depth, wall.Width)
+    w2 = 10
+    o1 = 0
+    o2 = w1 / 2
+    window = Arch.makeWindowPreset(windowtype, width=width, height=height, h1=h1, h2=h2, h3=h3, w1=w1, w2=w2, o1=o1, o2=o2, placement=pl)
     window.Hosts = [wall]
     return window
-
-def _get_window(objects):
-    new_objects = FreeCAD.ActiveDocument.Objects
-    for object in new_objects[len(objects):]:
-        if Draft.getType(object) == "Window":
-            if Draft.getType(object.Base) == "Sketcher::SketchObject":
-                return FreeCAD.ActiveDocument.getObject(object.Name)
-    return None
 
 def _get_wall(floor, imported_door):
     x = float(imported_door.get('x'))
     y_0 = float(imported_door.get('y'))# depends on angle as well
-    y_1 = float(imported_door.get('y')) + float(imported_door.get('depth')) # depends on angle as well
-    y_2 = float(imported_door.get('y')) - float(imported_door.get('depth')) # depends on angle as well
+    # y_1 = float(imported_door.get('y')) + float(imported_door.get('depth')) # depends on angle as well
+    # y_2 = float(imported_door.get('y')) - float(imported_door.get('depth')) # depends on angle as well
     z = _dim_fc2sh(floor.Placement.Base.z) + float(imported_door.get('elevation', 0))
     v0 = _coord_sh2fc(FreeCAD.Vector(x, y_0, z))
-    v1 = _coord_sh2fc(FreeCAD.Vector(x, y_1, z))
-    v2 = _coord_sh2fc(FreeCAD.Vector(x, y_2, z))
+    # v1 = _coord_sh2fc(FreeCAD.Vector(x, y_1, z))
+    # v2 = _coord_sh2fc(FreeCAD.Vector(x, y_2, z))
     for object in FreeCAD.ActiveDocument.Objects:
         if Draft.getType(object) == "Wall":
             bb = object.Shape.BoundBox
-            if bb.isInside(v0) or bb.isInside(v1) or bb.isInside(v2):
-                return object
+            try:
+                if bb.isInside(v0): # or bb.isInside(v1) or bb.isInside(v2):
+                    return object
+            except FloatingPointError:
+                pass
     return None
 
 def _import_furnitures(home, zip, floors):
@@ -729,7 +714,7 @@ def _import_furniture(zip, floors, imported_tuple):
     _add_piece_of_furniture_common_attributes(furniture, imported_furniture)
     _add_piece_of_furniture_horizontal_rotation_attributes(furniture, imported_furniture)
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
 
     return furniture
@@ -917,7 +902,7 @@ def _import_light(zip, floors, imported_tuple):
     light_appliance.power = float(imported_light.get('power', 0.5))
     light_appliance.shType = 'light'
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
 
     if not RENDER_AVAILABLE:
@@ -990,7 +975,7 @@ def _import_observer_camera(imported_tuple):
 
     _add_camera_common_attributes(feature, imported_camera)
 
-    if i % 5 and FreeCAD.GuiUp:
+    if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
 
     return camera
@@ -1030,12 +1015,13 @@ def _set_color_and_transparency(obj, color):
     if hasattr(obj.ViewObject,"Transparency"):
         obj.ViewObject.Transparency = _hex2transparency(color)
 
-def _get_sh3d_property(home, property_name):
+def _get_sh3d_property(home, property_name, default_value=None):
     """Return a SweetHome3D <property> element whith the specified name
 
     Args:
         home (ElementTree): the root of the SweetHome3D XML file
         property_name (str): the property name to lookup
+        default_value (any): the property default value
 
     Returns:
         str: the value of said property or None if it does not exists
@@ -1043,13 +1029,13 @@ def _get_sh3d_property(home, property_name):
     for property in home.findall('property'):
         if property.get('name') == property_name:
             return property.get('value')
-    return None
+    return default_value
 
 def _coord_fc2sh(vector):
     """Converts FreeCAD to SweetHome coordinate
 
     Args:
-        vector (FreeCAD.Vector): The coordinate in FreeCAD
+        FreeCAD.Vector (FreeCAD.Vector): The coordinate in FreeCAD
 
     Returns:
         FreeCAD.Vector: the SweetHome coordinate
@@ -1060,7 +1046,7 @@ def _coord_sh2fc(vector):
     """Converts SweetHome to FreeCAD coordinate
 
     Args:
-        vector (FreeCAD.Vector): The coordinate in SweetHome
+        FreeCAD.Vector (FreeCAD.Vector): The coordinate in SweetHome
 
     Returns:
         FreeCAD.Vector: the FreeCAD coordinate

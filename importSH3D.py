@@ -95,8 +95,11 @@ def read(filename):
     if not FreeCAD.ActiveDocument:
         FreeCAD.Console.PrintError("No active document. Aborting\n")
         return
-    
-    sh3d.import_sh3d(filename)
+
+    from importlib import reload
+    import sh3d.import_sh3d
+    reload(sh3d.import_sh3d)
+    sh3d.import_sh3d.import_sh3d(filename)
 
     FreeCADGui.SendMsgToActiveView("ViewFit")
 
