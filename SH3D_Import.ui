@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>580</width>
-    <height>500</height>
+    <height>528</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -73,8 +73,65 @@
          </item>
         </layout>
        </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Import</string>
+         </property>
+        </widget>
+       </item>
        <item row="1" column="1">
-        <widget class="QCheckBox" name="joinWall">
+        <widget class="QCheckBox" name="importDoors">
+         <property name="text">
+          <string>Doors</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QCheckBox" name="importFurnitures">
+         <property name="toolTip">
+          <string>Whether to import the model's furnitures</string>
+         </property>
+         <property name="text">
+          <string>Furnitures</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QCheckBox" name="importLights">
+         <property name="toolTip">
+          <string>Whether to import the model's lights.</string>
+         </property>
+         <property name="text">
+          <string>Lights (requires Render)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="importCameras">
+         <property name="toolTip">
+          <string>Whether to import the model's cameras</string>
+         </property>
+         <property name="text">
+          <string>Cameras (requires Render)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>Options</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QCheckBox" name="optJoinWalls">
          <property name="toolTip">
           <string>Modify the wall to make them join properly</string>
          </property>
@@ -86,46 +143,13 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
-        <widget class="QCheckBox" name="importFurnitures">
+       <item row="6" column="1">
+        <widget class="QCheckBox" name="optMergeElements">
          <property name="toolTip">
-          <string>Whether to import the model's furnitures</string>
+          <string>Merge imported element with existing FC entities</string>
          </property>
          <property name="text">
-          <string>Import furnitures</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1">
-        <widget class="QCheckBox" name="importLights">
-         <property name="toolTip">
-          <string>Whether to import the model's lights.</string>
-         </property>
-         <property name="text">
-          <string>Import lights (requires Render)</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1">
-        <widget class="QCheckBox" name="importCameras">
-         <property name="toolTip">
-          <string>Whether to import the model's cameras</string>
-         </property>
-         <property name="text">
-          <string>Import cameras (requires Render)</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QCheckBox" name="importDoors">
-         <property name="text">
-          <string>Import doors</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
+          <string>Merge</string>
          </property>
         </widget>
        </item>
@@ -196,6 +220,8 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>sh3dFilename</tabstop>
+  <tabstop>sh3dSelectFile</tabstop>
   <tabstop>btnImport</tabstop>
   <tabstop>btnClose</tabstop>
  </tabstops>

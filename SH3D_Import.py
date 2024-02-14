@@ -131,23 +131,25 @@ class SH3D_Import:
         FreeCAD.ActiveDocument.openTransaction("SH3D_Import")
         FreeCADGui.doCommand("# import sh3d")
         fn = self.SH3DFilename
-        join_wall = self.dialog.joinWall.isChecked()
+        opt_join_wall = self.dialog.optJoinWalls.isChecked()
+        opt_merge_elements = self.dialog.optMergeElements.isChecked()
         import_doors = self.dialog.importDoors.isChecked()
         import_furnitures = self.dialog.importFurnitures.isChecked()
         import_lights = self.dialog.importLights.isChecked()
         import_cameras = self.dialog.importCameras.isChecked()
-        cmd =  f"# sh3d.import_sh3d('{fn}', {join_wall}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
+        cmd =  f"# sh3d.import_sh3d('{fn}', {opt_join_wall}, {opt_merge_elements}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
         FreeCADGui.doCommand(cmd)
         from importlib import reload
         import sh3d.import_sh3d
         reload(sh3d.import_sh3d)
         sh3d.import_sh3d.import_sh3d(
                 self.SH3DFilename, 
-                self.dialog.joinWall.isChecked(),
-                self.dialog.importDoors.isChecked(),
-                self.dialog.importFurnitures.isChecked(),
-                self.dialog.importLights.isChecked(),
-                self.dialog.importCameras.isChecked(),
+                opt_join_wall,
+                opt_merge_elements,
+                import_doors,
+                import_furnitures,
+                import_lights,
+                import_cameras,
                 self.onImportProgress)
 
         FreeCAD.ActiveDocument.commitTransaction()

@@ -25,6 +25,8 @@ from zipfile import ZipFile
 
 import Arch
 import Draft
+import DraftGeomUtils
+import DraftVecUtils
 import FreeCAD
 import FreeCADGui
 import Mesh
@@ -48,12 +50,16 @@ except:
     FreeCAD.Console.PrintWarning("Render is not available. Not creating any lights.\n")
     RENDER_AVAILABLE = False
 
-def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_callback=None):
+# This hash contains the document elemnt with their SH3D id as key
+document_elements = {}
+
+def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_callback=None):
     """Import a SweetHome 3D file into the current document.
 
     Args:
         filename (str): the filename of the document to import 
         join_wall (bool, optional): whether to join walls. Defaults to True.
+        merge_elements (bool, optional): whether SH3D elment should be merged with existing elements. Defaults to True.
         import_doors (bool, optional): whether to import doors. Defaults to True.
         import_furnitures (bool, optional): whether to import furnitures. Defaults to True.
         import_lights (bool, optional): whether to import lights. Defaults to True.
@@ -67,6 +73,12 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
         def progress_callback(progress, status):
             FreeCAD.Console.PrintLog(f"{status} ({progress}/100)\n")
 
+    if merge_elements:
+        document_elements = {}
+        for object in FreeCAD.ActiveDocument.Objects:
+            if hasattr(object, 'id'):
+                document_elements[object.id] = object
+
     with ZipFile(filename, 'r') as zip:
         entries = zip.namelist()
         if "Home.xml" not in entries:
@@ -74,8 +86,8 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
         home = ET.fromstring(zip.read("Home.xml"))
 
         document = FreeCAD.ActiveDocument
-        document.addObject("App::DocumentObjectGroup","Baseboards")
         if import_furnitures:
+            document.addObject("App::DocumentObjectGroup","Baseboards")
             document.addObject("App::DocumentObjectGroup","Furnitures")
         if import_lights:
             document.addObject("App::DocumentObjectGroup","Lights")
@@ -92,7 +104,7 @@ def import_sh3d(filename, join_wall=True, import_doors=True, import_furnitures=T
         _import_rooms(home, floors)
 
         progress_callback(20, "Importing walls ...")
-        _import_walls(home, floors)
+        _import_walls(home, floors, import_furnitures)
 
         progress_callback(30, "Importing doors ...")
         if import_doors:
@@ -290,19 +302,20 @@ def _import_room(floors, imported_tuple):
 
     return slab
 
-def _import_walls(home, floors):
+def _import_walls(home, floors, import_baseboards):
     """Returns the list of imported walls
 
     Args:
         home (dict): The xml to read the objects from
         floors (list): The list of floor each wall references
+        import_baseboards (bool): whether baseboard should also be imported
 
     Returns:
         list: the list of imported walls
     """
-    return list(map(partial(_import_wall, floors), enumerate(home.findall('wall'))))
+    return list(map(partial(_import_wall, floors, import_baseboards), enumerate(home.findall('wall'))))
 
-def _import_wall(floors, imported_tuple):
+def _import_wall(floors, import_baseboards, imported_tuple):
     """Creates and returns a Arch::Structure from the imported_wall object
 
     Args:
@@ -315,21 +328,22 @@ def _import_wall(floors, imported_tuple):
     (i, imported_wall) = imported_tuple
     floor = _get_floor(floors, imported_wall.get('level'))
 
-    if imported_wall.get('heightAtEnd'):
-        wall = _make_tappered_wall(floor, imported_wall)
-    elif imported_wall.get('arcExtent'):
+    if imported_wall.get('arcExtent'):
         wall = _make_arqued_wall(floor, imported_wall)
+    elif imported_wall.get('heightAtEnd'):
+        wall = _make_tappered_wall(floor, imported_wall)
     else:
         wall = _make_straight_wall(floor, imported_wall)
 
-
     _set_wall_colors(wall, imported_wall)
 
-    baseboards = _import_baseboards(wall, imported_wall)
-    if len(baseboards):
-        FreeCAD.ActiveDocument.Baseboards.addObjects(baseboards)
+    if import_baseboards:
+        baseboards = _import_baseboards(wall, imported_wall)
+        if len(baseboards):
+            FreeCAD.ActiveDocument.Baseboards.addObjects(baseboards)
 
     wall.Label = imported_wall.get('id')
+    wall.IfcType = "Wall"
 
     _add_property(wall, "App::PropertyString", "shType", "The element type")
     _add_property(wall, "App::PropertyString", "id", "The wall's id")
@@ -397,7 +411,7 @@ def _make_tappered_wall(floor, imported_wall):
     x_end = float(imported_wall.get('xEnd'))
     y_end = float(imported_wall.get('yEnd'))
     z = _dim_fc2sh(floor.Placement.Base.z)
-    
+
     height_at_start = float(imported_wall.get('height', _dim_fc2sh(floor.Height)))
     height_at_end = float(imported_wall.get('heightAtEnd', height_at_start))
 
@@ -420,7 +434,66 @@ def _make_tappered_wall(floor, imported_wall):
     return wall
 
 def _make_arqued_wall(floor, imported_wall):
-    return _make_straight_wall(floor, imported_wall)
+
+    x1 = float(imported_wall.get('xStart'))
+    y1 = float(imported_wall.get('yStart'))
+    x2 = float(imported_wall.get('xEnd'))
+    y2 = float(imported_wall.get('yEnd'))
+    z = _dim_fc2sh(floor.Placement.Base.z)
+    
+    thickness = _dim_sh2fc(imported_wall.get('thickness'))
+
+    arc_extent = _ang_sh2fc(imported_wall.get('arcExtent', 0))
+
+    height1 = _dim_sh2fc(imported_wall.get('height', _dim_fc2sh(floor.Height)))
+    height2 = _dim_sh2fc(imported_wall.get('heightAtEnd', _dim_fc2sh(height1)))
+
+    # p1 and p2 are the points at which the arc should pass, i.e. the center 
+    #   of the edge used to draw the rectangle (used later on as sections)
+    p1 = _coord_sh2fc(FreeCAD.Vector(x1, y1, z))
+    p2 = _coord_sh2fc(FreeCAD.Vector(x2, y2, z))
+
+    # Calculate the circle that pases through the center of both rectangle
+    #   and has the correct angle betwen p1 and p2
+    chord = DraftVecUtils.dist(p1, p2)
+    radius = abs(chord / (2*math.sin(arc_extent/2)))
+
+    circles = DraftGeomUtils.circleFrom2PointsRadius(p1, p2, radius)
+    # NOTE: we take the circles closest to the origin
+    center = circles[0].Center
+
+    # NOTE: FreeCAD.Vector.getAngle return unsigned angle, using 
+    #   DraftVecUtils.angle instead
+    a1 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p1-center))
+    a2 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p2-center))
+
+    # Place the 1st section.
+    # The rectamgle is oriented vertically and normal to the radius (ZYX)
+    # NOTE: That we adjust the placement origin with the wall thickness, as 
+    #   the rectangle is placed using its corner (not the center of the edge
+    #   used to draw it).
+    r1 = FreeCAD.Rotation(a1, 0, 90)
+    p1_corner = p1.add(FreeCAD.Vector(-thickness/2,0,0))
+    placement1 = FreeCAD.Placement(p1_corner, r1)
+    section1 = Draft.make_rectangle(thickness, height1, placement1)
+
+    # Place the 2nd section. Rotation (ZYX)
+    r2 = FreeCAD.Rotation(-a2, 0, 90)
+    p2_corner = p2.add(FreeCAD.Vector(thickness/2,0,0))
+    placement2 = FreeCAD.Placement(p2_corner, r2)
+    section2 = Draft.make_rectangle(thickness, height2, placement2)
+
+    # Create the spine
+    placement = FreeCAD.Placement(center, FreeCAD.Rotation())
+    spine = Draft.make_circle(radius, placement, True, a2, a1)
+
+    feature = FreeCAD.ActiveDocument.addObject('Part::Sweep')
+    feature.Sections = [ section1, section2 ]
+    feature.Spine = spine
+    feature.Solid = True
+    feature.Frenet = False
+    wall = Arch.makeWall(feature)
+    return wall
 
 def _set_wall_colors(wall, imported_wall):
     # The default color of the wall
@@ -541,6 +614,8 @@ def _import_door(floors, imported_tuple):
     window = _create_window(floor, imported_door)
     if not window:
         return None
+
+    window.IfcType = "Window"
 
     _add_property(window, "App::PropertyString", "shType", "The element type")
     window.shType = 'doorOrWindow'
@@ -693,6 +768,8 @@ def _import_furniture(zip, floors, imported_tuple):
         )
         furniture.Material = materials[0]
 
+    #furniture.IfcType = "Furniture"
+
     _add_property(furniture, "App::PropertyString", "shType", "The element type")
     furniture.shType = 'wall'
     _add_furniture_common_attributes(furniture, imported_furniture)
@@ -751,6 +828,7 @@ def _create_furniture(floors, imported_furniture, mesh):
 
     furniture = FreeCAD.ActiveDocument.addObject("Mesh::Feature", name)
     furniture.Mesh = mesh
+    # return Arch.makeEquipment(baseobj=furniture, name=name)
     return furniture
 
 def _add_furniture_common_attributes(furniture, imported_furniture):
@@ -1059,6 +1137,28 @@ def _dim_sh2fc(dimension):
         float: the FreeCAD dimension
     """
     return float(dimension)*FACTOR
+
+def _ang_sh2fc(angle):
+    """Convert SweetHome angle (º) to FreeCAD angle (º)
+
+    Args:
+        angle (float): The angle in SweetHome
+
+    Returns:
+        float: the FreeCAD angle
+    """
+    return -float(angle)
+
+def _ang_fc2sh(angle):
+    """Convert FreeCAD angle (º) to SweetHome angle (º)
+
+    Args:
+        angle (float): The angle in FreeCAD
+
+    Returns:
+        float: the SweetHome angle
+    """
+    return -float(angle)
 
 def _add_property(obj, property_type, name, description):
     obj.addProperty(property_type, name, "SweetHome3D", description)
