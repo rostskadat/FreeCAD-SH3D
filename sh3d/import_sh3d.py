@@ -40,7 +40,7 @@ import xml.etree.ElementTree as ET
 # SweetHome3D is in cm while FreeCAD is in mm
 FACTOR = 10
 
-DEBUG = True
+DEBUG = False
 
 RENDER_AVAILABLE = True
 
@@ -51,6 +51,7 @@ except:
     RENDER_AVAILABLE = False
 
 # This hash contains the document elemnt with their SH3D id as key
+shoul_merge_elements = True
 document_elements = {}
 
 def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_callback=None):
@@ -73,8 +74,11 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
         def progress_callback(progress, status):
             FreeCAD.Console.PrintLog(f"{status} ({progress}/100)\n")
 
+    global shoul_merge_elements
+    global document_elements
+    shoul_merge_elements = merge_elements
     if merge_elements:
-        document_elements = {}
+        
         for object in FreeCAD.ActiveDocument.Objects:
             if hasattr(object, 'id'):
                 document_elements[object.id] = object
@@ -86,12 +90,13 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
         home = ET.fromstring(zip.read("Home.xml"))
 
         document = FreeCAD.ActiveDocument
-        if import_furnitures:
+        if import_furnitures and (not merge_elements or not document.getObject("Baseboards")):
             document.addObject("App::DocumentObjectGroup","Baseboards")
+        if import_furnitures and (not merge_elements or not document.getObject("Furnitures")):
             document.addObject("App::DocumentObjectGroup","Furnitures")
-        if import_lights:
+        if import_lights and (not merge_elements or not document.getObject("Lights")):
             document.addObject("App::DocumentObjectGroup","Lights")
-        if import_cameras:
+        if import_cameras and (not merge_elements or not document.getObject("Cameras")):
             document.addObject("App::DocumentObjectGroup","Cameras")
 
         progress_callback(0, "Importing levels ...")
@@ -123,13 +128,23 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
             _import_observer_cameras(home)
 
         progress_callback(70, "Creating Arch::Site ...")
-        building = Arch.makeBuilding(floors)
-        #building.Label = home.find('label').find('text')
-        Arch.makeSite([ building ])
-        Arch.makeProject([ ])
+
+        name = home.get('name')
+        building = None
+        if shoul_merge_elements:
+            building = _get_element_to_merge({'id':name}, 'building')
+
+        if not building:
+            building = Arch.makeBuilding(floors)
+            _add_property(building, "App::PropertyString", "shType", "The element type")
+            _add_property(building, "App::PropertyString", "id", "The element's id")
+            building.shType = 'building'
+            building.id = name
+            Arch.makeSite([ building ])
+            Arch.makeProject([ ])
 
         # TODO: Should be set only when opening a file, not when importing
-        document.Label = building.Label
+        document.Label = name
         document.CreatedBy = _get_sh3d_property(home, 'Author', '')
         document.Comment = _get_sh3d_property(home, 'Copyright', '')
         document.License = _get_sh3d_property(home, 'License', '')
@@ -163,7 +178,13 @@ def _import_level(imported_tuple):
         Arc::Floor: the newly created object
     """
     (i, imported_level) = imported_tuple
-    floor = Arch.makeFloor()
+
+    floor = None
+    if shoul_merge_elements:
+        floor = _get_element_to_merge(imported_level, 'level')
+
+    if not floor:
+        floor = Arch.makeFloor()
     floor.Label = imported_level.get('name')
     floor.Placement.Base.z = _dim_sh2fc(float(imported_level.get('elevation')))
     floor.Height = _dim_sh2fc(float(imported_level.get('height')))
@@ -189,17 +210,24 @@ def _import_level(imported_tuple):
     return floor
 
 def _create_default_floor():
-    default_floor = Arch.makeFloor()
+
+    default_floor = None
+    if shoul_merge_elements:
+        default_floor = _get_element_to_merge({'id':"default-floor"}, 'level')
+
+    if not default_floor:
+        default_floor = Arch.makeFloor()
+
     default_floor.Label = 'Floor'
     default_floor.Placement.Base.z = 0
     default_floor.Height = 2500
 
     _add_property(default_floor, "App::PropertyString", "shType", "The element type")
-    _add_property(default_floor, "App::PropertyString", "id", "The floor's id")
+    _add_property(default_floor, "App::PropertyString", "id", "The floor id")
     _add_property(default_floor, "App::PropertyFloat", "floorThickness", "The floor's slab thickness")
 
     default_floor.shType         = 'level'
-    default_floor.id             = str(uuid.uuid4())
+    default_floor.id             = "default-floor"
     default_floor.floorThickness = 200
 
     return default_floor
@@ -251,8 +279,15 @@ def _import_room(floors, imported_tuple):
         y = float(point.get('y'))
         z = _dim_fc2sh(floor.Placement.Base.z)
         points.append(_coord_sh2fc(FreeCAD.Vector(x, y, z)))
-    line = Draft.make_wire(points, placement=pl, closed=True, face=True, support=None)
-    slab = Arch.makeStructure(line, height=floor.floorThickness)
+
+    slab = None
+    if shoul_merge_elements:
+        slab = _get_element_to_merge(imported_room, 'room')
+
+    if not slab:
+        line = Draft.make_wire(points, placement=pl, closed=True, face=True, support=None)
+        slab = Arch.makeStructure(line, height=floor.floorThickness)
+
     slab.Label = imported_room.get('name', 'Room')
     slab.IfcType = "Slab"
     slab.Normal = FreeCAD.Vector(0,0,-1)
@@ -326,22 +361,22 @@ def _import_wall(floors, import_baseboards, imported_tuple):
         Arc::Structure: the newly created object
     """
     (i, imported_wall) = imported_tuple
+
     floor = _get_floor(floors, imported_wall.get('level'))
 
-    if imported_wall.get('arcExtent'):
-        wall = _make_arqued_wall(floor, imported_wall)
-    elif imported_wall.get('heightAtEnd'):
-        wall = _make_tappered_wall(floor, imported_wall)
-    else:
-        wall = _make_straight_wall(floor, imported_wall)
+    wall = None
+    if shoul_merge_elements:
+        wall = _get_element_to_merge(imported_wall, 'wall')
+
+    if not wall:
+        if imported_wall.get('arcExtent'):
+            wall = _make_arqued_wall(floor, imported_wall)
+        elif imported_wall.get('heightAtEnd'):
+            wall = _make_tappered_wall(floor, imported_wall)
+        else:
+            wall = _make_straight_wall(floor, imported_wall)
 
     _set_wall_colors(wall, imported_wall)
-
-    if import_baseboards:
-        baseboards = _import_baseboards(wall, imported_wall)
-        if len(baseboards):
-            FreeCAD.ActiveDocument.Baseboards.addObjects(baseboards)
-
     wall.Label = imported_wall.get('id')
     wall.IfcType = "Wall"
 
@@ -360,6 +395,11 @@ def _import_wall(floors, import_baseboards, imported_tuple):
     wall.pattern = imported_wall.get('pattern', '')
     wall.leftSideShininess = float(imported_wall.get('leftSideShininess', 0))
     wall.rightSideShininess = float(imported_wall.get('rightSideShininess', 0))
+
+    if import_baseboards:
+        baseboards = _import_baseboards(wall, imported_wall)
+        if len(baseboards):
+            FreeCAD.ActiveDocument.Baseboards.addObjects(baseboards)
 
     floor.addObject(wall)
 
@@ -502,9 +542,10 @@ def _set_wall_colors(wall, imported_wall):
         _set_color_and_transparency(wall, topColor)
     leftSideColor = _hex2rgb(imported_wall.get('leftSideColor', topColor))
     rightSideColor = _hex2rgb(imported_wall.get('rightSideColor', topColor))
+    #print(f"{wall.id} right: {imported_wall.get('rightSideColor', topColor)} => {rightSideColor}")
     topColor = _hex2rgb(topColor)
 
-    colors = [leftSideColor,topColor,rightSideColor,topColor,topColor,topColor]
+    colors = [leftSideColor, topColor, rightSideColor, topColor, topColor, topColor]
     if hasattr(wall.ViewObject, "DiffuseColor"):
         wall.ViewObject.DiffuseColor = colors
 
@@ -556,12 +597,19 @@ def _import_baseboard(wall, imported_baseboard):
     p2 = p_end - v_baseboard
     p3 = p_start - v_baseboard
 
-    # I first add a rectangle
-    baseboard_base = Draft.make_rectangle([p0, p1, p2, p3], face=True, support=None)
+    baseboard_id = f"{wall.id}-{side}" 
+    baseboard = None
+    if shoul_merge_elements:
+        baseboard = _get_element_to_merge({'id':baseboard_id}, 'baseboard')
 
-    # and then I extrude
-    baseboard = FreeCAD.ActiveDocument.addObject('Part::Extrusion', f"{wall.Label} {side}")
-    baseboard.Base = baseboard_base
+    if not baseboard:
+        # I first add a rectangle
+        base = Draft.make_rectangle([p0, p1, p2, p3], face=True, support=None)
+        base.Visibility = False
+        # and then I extrude
+        baseboard = FreeCAD.ActiveDocument.addObject('Part::Extrusion', f"{wall.Label} {side}")
+        baseboard.Base = base
+
     baseboard.DirMode = "Custom"
     baseboard.Dir = FreeCAD.Vector(0, 0, 1)
     baseboard.DirLink = None
@@ -572,16 +620,17 @@ def _import_baseboard(wall, imported_baseboard):
     baseboard.Symmetric = False
     baseboard.TaperAngle = 0
     baseboard.TaperAngleRev = 0
-    baseboard_base.Visibility = False
 
     if FreeCAD.GuiUp:
         if imported_baseboard.get('color'):
             _set_color_and_transparency(baseboard, imported_baseboard.get('color'))
 
     _add_property(baseboard, "App::PropertyString", "shType", "The element type")
+    _add_property(baseboard, "App::PropertyString", "id", "The element's id")
     _add_property(baseboard, "App::PropertyLink", "parent", "The element parent")
 
     baseboard.shType = 'baseboard'
+    baseboard.id = baseboard_id
     baseboard.parent = wall
 
     return baseboard
@@ -611,18 +660,20 @@ def _import_door(floors, imported_tuple):
     (i, imported_door) = imported_tuple
     floor = _get_floor(floors, imported_door.get('level'))
 
-    window = _create_window(floor, imported_door)
+    window = None
+    if shoul_merge_elements:
+        window = _get_element_to_merge(imported_door, 'doorOrWindow')
+
     if not window:
-        return None
+        window = _create_window(floor, imported_door)
+        if not window:
+            return None
 
     window.IfcType = "Window"
 
     _add_property(window, "App::PropertyString", "shType", "The element type")
-    window.shType = 'doorOrWindow'
-
     _add_furniture_common_attributes(window, imported_door)
     _add_piece_of_furniture_common_attributes(window, imported_door)
-
     _add_property(window, "App::PropertyFloat", "wallThickness", "")
     _add_property(window, "App::PropertyFloat", "wallDistance", "")
     _add_property(window, "App::PropertyFloat", "wallWidth", "")
@@ -634,6 +685,7 @@ def _import_door(floors, imported_tuple):
     _add_property(window, "App::PropertyString", "cutOutShape", "")
     _add_property(window, "App::PropertyBool", "boundToWall", "")
 
+    window.shType = 'doorOrWindow'
     window.wallThickness = float(imported_door.get('wallThickness', 1))
     window.wallDistance = float(imported_door.get('wallDistance', 0))
     window.wallWidth = float(imported_door.get('wallWidth', 1))
@@ -749,32 +801,40 @@ def _import_furniture(zip, floors, imported_tuple):
         Mesh: the newly created object
     """
     (i, imported_furniture) = imported_tuple
-    # let's read the model first
-    model = imported_furniture.get('model')
-    if model not in zip.namelist():
-        raise ValueError(f"Invalid SweetHome3D file: missing model {model}")
-    materials = _import_materials(imported_furniture)
-    mesh = _get_mesh_from_model(zip, model, materials)
-    furniture = _create_furniture(floors, imported_furniture, mesh)
-    FreeCAD.ActiveDocument.Furnitures.addObject(furniture)
-    if "Material" not in furniture.PropertiesList and len(materials) > 0:
-        furniture.addProperty(
-                "App::PropertyLink",
-                "Material",
-                "",
-                QT_TRANSLATE_NOOP(
-                    "App::Property", "The Material for this object"
-                ),
-        )
-        furniture.Material = materials[0]
+
+    furniture = None
+    if shoul_merge_elements:
+        furniture = _get_element_to_merge(imported_furniture, 'pieceOfFurniture')
+
+    if not furniture:
+        # let's read the model first
+        model = imported_furniture.get('model')
+        if model not in zip.namelist():
+            raise ValueError(f"Invalid SweetHome3D file: missing model {model}")
+        materials = _import_materials(imported_furniture)
+        mesh = _get_mesh_from_model(zip, model, materials)
+        furniture = _create_furniture(floors, imported_furniture, mesh)
+        FreeCAD.ActiveDocument.Furnitures.addObject(furniture)
+
+        if "Material" not in furniture.PropertiesList and len(materials) > 0:
+            furniture.addProperty(
+                    "App::PropertyLink",
+                    "Material",
+                    "",
+                    QT_TRANSLATE_NOOP(
+                        "App::Property", "The Material for this object"
+                    ),
+            )
+            furniture.Material = materials[0]
 
     #furniture.IfcType = "Furniture"
 
     _add_property(furniture, "App::PropertyString", "shType", "The element type")
-    furniture.shType = 'wall'
     _add_furniture_common_attributes(furniture, imported_furniture)
     _add_piece_of_furniture_common_attributes(furniture, imported_furniture)
     _add_piece_of_furniture_horizontal_rotation_attributes(furniture, imported_furniture)
+
+    furniture.shType = 'pieceOfFurniture'
 
     if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
@@ -963,7 +1023,6 @@ def _import_light(zip, floors, imported_tuple):
 
     _add_property(light_appliance, "App::PropertyFloat", "power", "The power of the light")
     light_appliance.power = float(imported_light.get('power', 0.5))
-    light_appliance.shType = 'light'
 
     if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
@@ -971,13 +1030,21 @@ def _import_light(zip, floors, imported_tuple):
     if not RENDER_AVAILABLE:
         return None
 
-    for light_source in imported_light.findall('lightSource'):
+    for j,light_source in enumerate(imported_light.findall('lightSource')):
         x = float(light_source.get('x'))
         y = float(light_source.get('y'))
         z = float(light_source.get('z'))
         diameter = float(light_source.get('diameter'))
         color = light_source.get('color')
-        light, feature, _ = Render.PointLight.create()
+
+        light_source_id = f"{imported_light.get('id')}-{j}"
+        feature = None
+        if shoul_merge_elements:
+            feature = _get_element_to_merge({'id':light_source_id}, 'lightSource')
+
+        if not feature:
+            _, feature, _ = Render.PointLight.create()
+
         feature.Label = light_appliance.Label
         feature.Placement.Base = _coord_sh2fc(FreeCAD.Vector(x,y,z))
         feature.Radius = _dim_sh2fc(diameter / 2)
@@ -985,9 +1052,12 @@ def _import_light(zip, floors, imported_tuple):
         FreeCAD.ActiveDocument.Lights.addObject(feature)
 
         _add_property(feature, "App::PropertyString", "shType", "The element type")
-        feature.shType = 'lightSource'
+        _add_property(feature, "App::PropertyString", "id", "The elment's id")
 
-    return light
+        feature.shType = 'lightSource'
+        feature.id = light_source_id
+
+    return feature
 
 def _import_observer_cameras(home):
     if not RENDER_AVAILABLE:
@@ -1016,7 +1086,15 @@ def _import_observer_camera(imported_tuple):
     # ¿How to convert fov to FocalLength?
     fieldOfView = float(imported_camera.get('fieldOfView'))
 
-    camera, feature, _ = Render.Camera.create()
+    camera_id = f"observerCamera-{i}"
+    feature = None
+    if shoul_merge_elements:
+        feature = _get_element_to_merge({'id':camera_id}, 'observerCamera')
+
+    if not feature:
+        _, feature, _ = Render.Camera.create()
+        FreeCAD.ActiveDocument.Cameras.addObject(feature)
+
     feature.Label = imported_camera.get('name', 'ObserverCamera')
     feature.Placement.Base = _coord_sh2fc(FreeCAD.Vector(x,y,z))
     # NOTE: the coordinate system is screen like, thus roll & picth are inverted ZY'X''
@@ -1024,24 +1102,21 @@ def _import_observer_camera(imported_tuple):
     feature.Projection = "Perspective"
     feature.AspectRatio = 1.33333333 # /home/environment/@photoAspectRatio
 
-    FreeCAD.ActiveDocument.Cameras.addObject(feature)
-
     _add_property(feature, "App::PropertyString", "shType", "The element type")
-    feature.shType = 'observerCamera'
-
     _add_property(feature, "App::PropertyEnumeration", "attribute", "The type of camera")
+    _add_property(feature, "App::PropertyBool", "fixedSize", "Whether the object is fixed size")
+    _add_camera_common_attributes(feature, imported_camera)
+
+    feature.shType = 'observerCamera'
+    feature.id = camera_id
     feature.attribute = ["observerCamera", "storedCamera", "cameraPath"]
     feature.attribute = imported_camera.get('attribute')
-
-    _add_property(feature, "App::PropertyBool", "fixedSize", "Whether the object is fixed size")
     feature.fixedSize = bool(imported_camera.get('fixedSize', False))
-
-    _add_camera_common_attributes(feature, imported_camera)
 
     if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
 
-    return camera
+    return feature
 
 def _add_camera_common_attributes(feature, imported_camera):
     _add_property(feature, "App::PropertyString", "id", "The object horizontally rotatable")
@@ -1161,4 +1236,19 @@ def _ang_fc2sh(angle):
     return -float(angle)
 
 def _add_property(obj, property_type, name, description):
-    obj.addProperty(property_type, name, "SweetHome3D", description)
+    if name not in obj.PropertiesList:
+        obj.addProperty(property_type, name, "SweetHome3D", description)
+
+def _get_element_to_merge(imported_element, sh_type=None):
+    global shoul_merge_elements
+    global document_elements
+    id = imported_element.get('id')
+    if shoul_merge_elements and id in document_elements:
+        element = document_elements[id]
+        if sh_type:
+            assert element.shType == sh_type, f"Invalid shType: expected {sh_type}, got {element.shType}"
+        if DEBUG:
+            FreeCAD.Console.PrintMessage(f"Merging imported element '{id}' with existing element of type '{type(element)}'\n")
+        return element
+    if DEBUG:
+        FreeCAD.Console.PrintWarning(f"No element found with id '{id}' and type '{sh_type}'\n")
