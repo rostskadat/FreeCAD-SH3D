@@ -57,7 +57,7 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
     """Import a SweetHome 3D file into the current document.
 
     Args:
-        filename (str): the filename of the document to import 
+        filename (str): the filename of the document to import
         join_wall (bool, optional): whether to join walls. Defaults to True.
         merge_elements (bool, optional): whether SH3D elment should be merged with existing elements. Defaults to True.
         import_doors (bool, optional): whether to import doors. Defaults to True.
@@ -135,11 +135,11 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
         document.License = _get_sh3d_property(home, 'License', '')
 
         progress_callback(100, "Successfully imported data.")
-        
+
 
     FreeCAD.activeDocument().recompute()
     if FreeCAD.GuiUp:
-        FreeCADGui.SendMsgToActiveView("ViewFit")        
+        FreeCADGui.SendMsgToActiveView("ViewFit")
 
 def _import_levels(home):
     """Returns all the levels found in the file.
@@ -156,7 +156,7 @@ def _import_level(imported_tuple):
     """Creates and returns a Arch::Floor from the imported_level object
 
     Args:
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -235,7 +235,7 @@ def _import_room(floors, imported_tuple):
     """Creates and returns a Arch::Structure from the imported_room object
 
     Args:
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -319,7 +319,7 @@ def _import_wall(floors, import_baseboards, imported_tuple):
     """Creates and returns a Arch::Structure from the imported_wall object
 
     Args:
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -370,7 +370,7 @@ def _import_wall(floors, import_baseboards, imported_tuple):
     return wall
 
 def _make_straight_wall(floor, imported_wall):
-    """Create a Arch Wall from a line. 
+    """Create a Arch Wall from a line.
 
     The constructed wall will be a simple solid with the length width height found in imported_wall
 
@@ -389,7 +389,7 @@ def _make_straight_wall(floor, imported_wall):
 
     pl = FreeCAD.Placement()
     points = [
-        _coord_sh2fc(FreeCAD.Vector(x_start, y_start, z_start)), 
+        _coord_sh2fc(FreeCAD.Vector(x_start, y_start, z_start)),
         _coord_sh2fc(FreeCAD.Vector(x_end, y_end, z_start))
     ]
     line = Draft.make_wire(points, placement=pl, closed=False, face=True, support=None)
@@ -440,7 +440,7 @@ def _make_arqued_wall(floor, imported_wall):
     x2 = float(imported_wall.get('xEnd'))
     y2 = float(imported_wall.get('yEnd'))
     z = _dim_fc2sh(floor.Placement.Base.z)
-    
+
     thickness = _dim_sh2fc(imported_wall.get('thickness'))
 
     arc_extent = _ang_sh2fc(imported_wall.get('arcExtent', 0))
@@ -448,7 +448,7 @@ def _make_arqued_wall(floor, imported_wall):
     height1 = _dim_sh2fc(imported_wall.get('height', _dim_fc2sh(floor.Height)))
     height2 = _dim_sh2fc(imported_wall.get('heightAtEnd', _dim_fc2sh(height1)))
 
-    # p1 and p2 are the points at which the arc should pass, i.e. the center 
+    # p1 and p2 are the points at which the arc should pass, i.e. the center
     #   of the edge used to draw the rectangle (used later on as sections)
     p1 = _coord_sh2fc(FreeCAD.Vector(x1, y1, z))
     p2 = _coord_sh2fc(FreeCAD.Vector(x2, y2, z))
@@ -462,14 +462,14 @@ def _make_arqued_wall(floor, imported_wall):
     # NOTE: we take the circles closest to the origin
     center = circles[0].Center
 
-    # NOTE: FreeCAD.Vector.getAngle return unsigned angle, using 
+    # NOTE: FreeCAD.Vector.getAngle return unsigned angle, using
     #   DraftVecUtils.angle instead
     a1 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p1-center))
     a2 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p2-center))
 
     # Place the 1st section.
     # The rectamgle is oriented vertically and normal to the radius (ZYX)
-    # NOTE: That we adjust the placement origin with the wall thickness, as 
+    # NOTE: That we adjust the placement origin with the wall thickness, as
     #   the rectangle is placed using its corner (not the center of the edge
     #   used to draw it).
     r1 = FreeCAD.Rotation(a1, 0, 90)
@@ -504,7 +504,7 @@ def _set_wall_colors(wall, imported_wall):
     rightSideColor = _hex2rgb(imported_wall.get('rightSideColor', topColor))
     topColor = _hex2rgb(topColor)
 
-    colors = [leftSideColor,topColor,rightSideColor,topColor,topColor,topColor] 
+    colors = [leftSideColor,topColor,rightSideColor,topColor,topColor,topColor]
     if hasattr(wall.ViewObject, "DiffuseColor"):
         wall.ViewObject.DiffuseColor = colors
 
@@ -536,7 +536,7 @@ def _import_baseboard(wall, imported_baseboard):
     vertexes = wall.Shape.Vertexes
 
     # The left side is defined as the face on the left hand side when going
-    # from (xStart,yStart) to (xEnd,yEnd). I assume the points are always 
+    # from (xStart,yStart) to (xEnd,yEnd). I assume the points are always
     # created in the same order. We then have on the lefthand side the points
     # 1 and 2, while on the righthand side we have the points 4 and 6
     side = imported_baseboard.get('attribute')
@@ -602,7 +602,7 @@ def _import_door(floors, imported_tuple):
 
     Args:
         floors (list): the list of imported levels
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -651,10 +651,10 @@ def _import_door(floors, imported_tuple):
     return window
 
 def _create_window(floor, imported_door):
-    # The window in SweetHome3D s is defined with a width, depth, height. 
+    # The window in SweetHome3D s is defined with a width, depth, height.
     # Furthermore the (x.y.z) is the center point of the lower face of the
-    # window. In FC the placement is defined on the face of the whole that 
-    # will contain the windows. The makes this calculation rather 
+    # window. In FC the placement is defined on the face of the whole that
+    # will contain the windows. The makes this calculation rather
     # cumbersome.
     x_center = float(imported_door.get('x'))
     y_center = float(imported_door.get('y'))
@@ -677,7 +677,7 @@ def _create_window(floor, imported_door):
     angle = float(imported_door.get('angle',0))
 
     # this is the vector that allow me to go from the center to the corner
-    # of the bouding box. Note that the angle of the rotation is negated 
+    # of the bouding box. Note that the angle of the rotation is negated
     # because the y axis is reversed in SweetHome3D
     center2corner = FreeCAD.Vector( -width/2, -wall.Width/2, 0 )
     center2corner = FreeCAD.Rotation( FreeCAD.Vector(0,0,1), math.degrees(-angle) ).multVec(center2corner)
@@ -689,8 +689,8 @@ def _create_window(floor, imported_door):
         FreeCAD.Vector( 0, 0, 0 ) # rotation@coordinate
     )
 
-    # NOTE: the windows are not imported as meshes, but we use a simple 
-    #   correspondance between a catalog ID and a specific window preset from 
+    # NOTE: the windows are not imported as meshes, but we use a simple
+    #   correspondance between a catalog ID and a specific window preset from
     #   the parts library.
     catalog_id = imported_door.get('catalogId')
     if catalog_id in ("eTeks#fixedWindow85x123", "eTeks#window85x123", "eTeks#doubleWindow126x123", "eTeks#doubleWindow126x163", "eTeks#doubleFrenchWindow126x200", "eTeks#window85x163", "eTeks#frenchWindow85x200", "eTeks#doubleHungWindow80x122", "eTeks#roundWindow", "eTeks#halfRoundWindow"):
@@ -742,7 +742,7 @@ def _import_furniture(zip, floors, imported_tuple):
     Args:
         zip (ZipFile): the Zip containing the Mesh file
         floors (list): the list of imported levels
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -794,7 +794,7 @@ def _get_mesh_from_model(zip, model, materials):
         mesh = Mesh.Mesh()
         mesh.read(model_path_obj)
     finally:
-        if model_path_obj: 
+        if model_path_obj:
             os.remove(model_path_obj)
     return mesh
 
@@ -921,7 +921,7 @@ def _add_piece_of_furniture_horizontal_rotation_attributes(furniture, imported_f
 def _import_materials(imported_furniture):
     if 'material' not in imported_furniture:
         return []
-    
+
     imported_materials = imported_furniture.findall('material')
     materials = []
     try:
@@ -930,8 +930,8 @@ def _import_materials(imported_furniture):
             color = imported_material.get('color', 'FF000000')
             shininess = imported_material.get('shininess', '0.0')
             material = Arch.makeMaterial(
-                name=name, 
-                color=_hex2rgb(color), 
+                name=name,
+                color=_hex2rgb(color),
                 transparency=_hex2transparency(color)
                 )
             _add_property(material, "App::PropertyFloat", "shininess", "The shininess of the material")
@@ -939,7 +939,7 @@ def _import_materials(imported_furniture):
             materials.append(material)
     except Exception as e:
         FreeCAD.Console.PrintError(f"Error while creating material {e}")
-    
+
     return materials
 
 def _import_lights(home, zip, floors):
@@ -951,7 +951,7 @@ def _import_light(zip, floors, imported_tuple):
     Args:
         zip (ZipFile): the Zip containing the Mesh file
         floors (list): the list of imported levels
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -1000,7 +1000,7 @@ def _import_observer_camera(imported_tuple):
     Args:
         zip (ZipFile): the Zip containing the Mesh file
         floors (list): the list of imported levels
-        imported_tuple (tuple): a tuple containing the index and the 
+        imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
@@ -1067,7 +1067,7 @@ def _rgb2hex(r,g,b):
 def _hex2rgb(hexcode):
     # We might have transparency as the first 2 digit
     offset = 0 if len(hexcode) == 6 else 2
-    return (int(hexcode[offset:offset+2], 16), int(hexcode[offset+2:offset+4], 16), int(hexcode[offset+4:offset+6], 16))
+    return (float(int(hexcode[offset:offset+2], 16)), float(int(hexcode[offset+2:offset+4], 16)), float(int(hexcode[offset+4:offset+6], 16)))
 
 def _hex2transparency(hexcode):
     return 50 if DEBUG else 100 - int( int(hexcode[0:2], 16) * 100 / 255 )
