@@ -40,8 +40,8 @@ import xml.etree.ElementTree as ET
 
 # SweetHome3D is in cm while FreeCAD is in mm
 FACTOR = 10
-
-DEBUG = False
+DEBUG = True
+DEBUG_COLOR = (255, 0, 0)
 
 RENDER_AVAILABLE = True
 
@@ -381,7 +381,6 @@ def _import_wall(floors, import_baseboards, imported_tuple):
             wall = _make_straight_wall(floor, imported_wall)
 
     _set_wall_colors(wall, imported_wall)
-    wall.Label = imported_wall.get('id')
     wall.IfcType = "Wall"
 
     _add_property(wall, "App::PropertyString", "shType", "The element type")
@@ -521,15 +520,90 @@ def _make_arqued_wall(floor, imported_wall):
     #   the rectangle is placed using its corner (not the center of the edge
     #   used to draw it).
     r1 = FreeCAD.Rotation(a1, 0, 90)
-    p1_corner = p1 #.add(FreeCAD.Vector(-thickness/2,0,0))
-    placement1 = FreeCAD.Placement(p1_corner, r1)
+    placement1 = FreeCAD.Placement(p1, r1)
     section1 = Draft.make_rectangle(thickness, height1, placement1)
 
     # Place the 2nd section. Rotation (ZYX)
     r2 = FreeCAD.Rotation(-a2, 0, 90)
-    p2_corner = p2 #.add(FreeCAD.Vector(thickness/2,0,0))
-    placement2 = FreeCAD.Placement(p2_corner, r2)
+    placement2 = FreeCAD.Placement(p2, r2)
     section2 = Draft.make_rectangle(thickness, height2, placement2)
+
+    if DEBUG:
+        section1.ViewObject.LineColor = DEBUG_COLOR
+        section2.ViewObject.LineColor = DEBUG_COLOR
+
+        origin = FreeCAD.Vector(0,0,0)
+
+        g = FreeCAD.ActiveDocument.addObject("App::DocumentObjectGroup", imported_wall.get('id'))
+
+        p = Draft.make_point(center.x, center.y, center.z, color=DEBUG_COLOR, name=f"Center-{imported_wall.get('id')}", point_size=5)
+        g.addObject(p)
+        p = Draft.make_point(p1.x, p1.y, p1.z, color=DEBUG_COLOR, name=f"P1-{imported_wall.get('id')}", point_size=5)
+        g.addObject(p)
+        p = Draft.make_point(p2.x, p2.y, p2.z, color=DEBUG_COLOR, name=f"P2-{imported_wall.get('id')}", point_size=5)
+        g.addObject(p)
+
+        l = Draft.make_wire([origin,p1])
+        l.ViewObject.LineColor = DEBUG_COLOR
+        l.Label = f"O-P1"
+        g.addObject(l)
+
+        l = Draft.make_wire([origin,p2])
+        l.ViewObject.LineColor = DEBUG_COLOR
+        l.Label = f"O-P2"
+        g.addObject(l)
+
+        s = Draft.make_rectangle(thickness, height1)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"O-S1"
+        g.addObject(s)
+
+        r = FreeCAD.Rotation(-a1, 0, 0)
+        p = FreeCAD.Placement(origin, r)
+        s = Draft.make_rectangle(thickness, height1, p)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"O-S1-(a1)"
+        g.addObject(s)
+
+        r = FreeCAD.Rotation(-a1, 0, 90)
+        p = FreeCAD.Placement(origin, r)
+        s = Draft.make_rectangle(thickness, height1, p)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"O-S1-(a1+90)"
+        g.addObject(s)
+
+        r = FreeCAD.Rotation(-a1, 0, 90)
+        p = FreeCAD.Placement(p1, r)
+        s = Draft.make_rectangle(thickness, height1, p)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"P1-S1-(a1+90)"
+        g.addObject(s)
+
+        s = Draft.make_rectangle(thickness, height2)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"O-S2"
+        g.addObject(s)
+
+        r = FreeCAD.Rotation(-a2, 0, 0)
+        p = FreeCAD.Placement(origin, r)
+        s = Draft.make_rectangle(thickness, height2, p)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"O-S2-(a2)"
+        g.addObject(s)
+
+        r = FreeCAD.Rotation(-a2, 0, 90)
+        p = FreeCAD.Placement(origin, r)
+        s = Draft.make_rectangle(thickness, height2, p)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"O-S2-(a2+90)"
+        g.addObject(s)
+
+        r = FreeCAD.Rotation(-a2, 0, 90)
+        p = FreeCAD.Placement(p2, r)
+        s = Draft.make_rectangle(thickness, height2, p)
+        s.ViewObject.LineColor = DEBUG_COLOR
+        s.Label = f"P2-S2-(a2+90)"
+        g.addObject(s)
 
     # Create the spine
     placement = FreeCAD.Placement(center, FreeCAD.Rotation())
