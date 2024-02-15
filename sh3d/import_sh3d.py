@@ -32,6 +32,7 @@ import FreeCADGui
 import Mesh
 import WorkingPlane
 
+import numpy
 import math
 import os
 import uuid
@@ -78,7 +79,7 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
     global document_elements
     shoul_merge_elements = merge_elements
     if merge_elements:
-        
+
         for object in FreeCAD.ActiveDocument.Objects:
             if hasattr(object, 'id'):
                 document_elements[object.id] = object
@@ -291,7 +292,7 @@ def _import_room(floors, imported_tuple):
     slab.Label = imported_room.get('name', 'Room')
     slab.IfcType = "Slab"
     slab.Normal = FreeCAD.Vector(0,0,-1)
-    
+
     pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
     defaultFloorColor = pref.GetString("defaultFloorColor", 'FF96A9BA')
 
@@ -484,17 +485,15 @@ def _make_arqued_wall(floor, imported_wall):
     y2 = float(imported_wall.get('yEnd'))
     z = _dim_fc2sh(floor.Placement.Base.z)
 
-    thickness = _dim_sh2fc(imported_wall.get('thickness'))
-
-    arc_extent = _ang_sh2fc(imported_wall.get('arcExtent', 0))
-
-    height1 = _dim_sh2fc(imported_wall.get('height', _dim_fc2sh(floor.Height)))
-    height2 = _dim_sh2fc(imported_wall.get('heightAtEnd', _dim_fc2sh(height1)))
-
     # p1 and p2 are the points at which the arc should pass, i.e. the center
     #   of the edge used to draw the rectangle (used later on as sections)
     p1 = _coord_sh2fc(FreeCAD.Vector(x1, y1, z))
     p2 = _coord_sh2fc(FreeCAD.Vector(x2, y2, z))
+
+    thickness = _dim_sh2fc(imported_wall.get('thickness'))
+    arc_extent = _ang_sh2fc(imported_wall.get('arcExtent', 0))
+    height1 = _dim_sh2fc(imported_wall.get('height', _dim_fc2sh(floor.Height)))
+    height2 = _dim_sh2fc(imported_wall.get('heightAtEnd', _dim_fc2sh(height1)))
 
     # Calculate the circle that pases through the center of both rectangle
     #   and has the correct angle betwen p1 and p2
@@ -502,11 +501,17 @@ def _make_arqued_wall(floor, imported_wall):
     radius = abs(chord / (2*math.sin(arc_extent/2)))
 
     circles = DraftGeomUtils.circleFrom2PointsRadius(p1, p2, radius)
-    # NOTE: we take the circles closest to the origin
+    # We take the circle that preserve the arc_extent orientation. The orientation
+    #   is calculated from p1 to p2
     center = circles[0].Center
+    if numpy.sign(arc_extent) != numpy.sign(DraftVecUtils.angle(p1-center, p2-center)):
+        center = circles[1].Center
 
     # NOTE: FreeCAD.Vector.getAngle return unsigned angle, using
     #   DraftVecUtils.angle instead
+    # a1 and a2 are the angle between each etremity radius and the unit vector
+    #   they are used to determine the rotation for the section used to draw
+    #   the wall.
     a1 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p1-center))
     a2 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p2-center))
 
@@ -516,13 +521,13 @@ def _make_arqued_wall(floor, imported_wall):
     #   the rectangle is placed using its corner (not the center of the edge
     #   used to draw it).
     r1 = FreeCAD.Rotation(a1, 0, 90)
-    p1_corner = p1.add(FreeCAD.Vector(-thickness/2,0,0))
+    p1_corner = p1 #.add(FreeCAD.Vector(-thickness/2,0,0))
     placement1 = FreeCAD.Placement(p1_corner, r1)
     section1 = Draft.make_rectangle(thickness, height1, placement1)
 
     # Place the 2nd section. Rotation (ZYX)
     r2 = FreeCAD.Rotation(-a2, 0, 90)
-    p2_corner = p2.add(FreeCAD.Vector(thickness/2,0,0))
+    p2_corner = p2 #.add(FreeCAD.Vector(thickness/2,0,0))
     placement2 = FreeCAD.Placement(p2_corner, r2)
     section2 = Draft.make_rectangle(thickness, height2, placement2)
 
@@ -600,7 +605,7 @@ def _import_baseboard(wall, imported_baseboard):
     p2 = p_end - v_baseboard
     p3 = p_start - v_baseboard
 
-    baseboard_id = f"{wall.id}-{side}" 
+    baseboard_id = f"{wall.id}-{side}"
     baseboard = None
     if shoul_merge_elements:
         baseboard = _get_element_to_merge({'id':baseboard_id}, 'baseboard')
