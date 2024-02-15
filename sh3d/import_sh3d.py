@@ -291,9 +291,12 @@ def _import_room(floors, imported_tuple):
     slab.Label = imported_room.get('name', 'Room')
     slab.IfcType = "Slab"
     slab.Normal = FreeCAD.Vector(0,0,-1)
-    if FreeCAD.GuiUp:
-      _set_color_and_transparency(slab, imported_room.get('floorColor', 'FF96A9BA'))
-      # ceilingColor is not imported in the model as it depends on the upper room
+    
+    pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
+    defaultFloorColor = pref.GetString("defaultFloorColor", 'FF96A9BA')
+
+    _set_color_and_transparency(slab, imported_room.get('floorColor', defaultFloorColor))
+    # ceilingColor is not imported in the model as it depends on the upper room
 
     _add_property(slab, "App::PropertyString", "shType", "The element type")
     _add_property(slab, "App::PropertyString", "id", "The slab's id")
@@ -537,12 +540,12 @@ def _make_arqued_wall(floor, imported_wall):
 
 def _set_wall_colors(wall, imported_wall):
     # The default color of the wall
-    topColor = imported_wall.get('topColor', 'FF96A9BA')
-    if FreeCAD.GuiUp:
-        _set_color_and_transparency(wall, topColor)
+    pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
+    defaultWallColor = pref.GetString("DefaultWallColor", 'FF96A9BA')
+    topColor = imported_wall.get('topColor', defaultWallColor)
+    _set_color_and_transparency(wall, topColor)
     leftSideColor = _hex2rgb(imported_wall.get('leftSideColor', topColor))
     rightSideColor = _hex2rgb(imported_wall.get('rightSideColor', topColor))
-    #print(f"{wall.id} right: {imported_wall.get('rightSideColor', topColor)} => {rightSideColor}")
     topColor = _hex2rgb(topColor)
 
     colors = [leftSideColor, topColor, rightSideColor, topColor, topColor, topColor]
@@ -621,9 +624,7 @@ def _import_baseboard(wall, imported_baseboard):
     baseboard.TaperAngle = 0
     baseboard.TaperAngleRev = 0
 
-    if FreeCAD.GuiUp:
-        if imported_baseboard.get('color'):
-            _set_color_and_transparency(baseboard, imported_baseboard.get('color'))
+    _set_color_and_transparency(baseboard, imported_baseboard.get('color'))
 
     _add_property(baseboard, "App::PropertyString", "shType", "The element type")
     _add_property(baseboard, "App::PropertyString", "id", "The element's id")
@@ -1142,12 +1143,14 @@ def _rgb2hex(r,g,b):
 def _hex2rgb(hexcode):
     # We might have transparency as the first 2 digit
     offset = 0 if len(hexcode) == 6 else 2
-    return (float(int(hexcode[offset:offset+2], 16)), float(int(hexcode[offset+2:offset+4], 16)), float(int(hexcode[offset+4:offset+6], 16)))
+    return (float(int(hexcode[offset:offset+2], 16))/255, float(int(hexcode[offset+2:offset+4], 16))/255, float(int(hexcode[offset+4:offset+6], 16))/255)
 
 def _hex2transparency(hexcode):
     return 50 if DEBUG else 100 - int( int(hexcode[0:2], 16) * 100 / 255 )
 
 def _set_color_and_transparency(obj, color):
+    if not FreeCAD.GuiUp or not color:
+        return
     if hasattr(obj.ViewObject,"ShapeColor"):
         obj.ViewObject.ShapeColor = _hex2rgb(color)
     if hasattr(obj.ViewObject,"Transparency"):
