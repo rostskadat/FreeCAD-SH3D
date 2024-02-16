@@ -83,7 +83,7 @@
        <item row="1" column="1">
         <widget class="QCheckBox" name="importDoors">
          <property name="text">
-          <string>Doors</string>
+          <string>Doors and Windows</string>
          </property>
          <property name="checked">
           <bool>true</bool>
