@@ -123,27 +123,38 @@ class SH3D_Import:
         """Update the dialog filename.
         """
         self.dialog.sh3dFilename.setText(self.SH3DFilename)
+        has_render = False
+        try:
+            import Render
+            has_render = True
+        except:
+            pass
+        self.dialog.importCameras.setEnabled(has_render)
+        self.dialog.importLights.setEnabled(has_render)
 
     def onImport(self):
         self.dialog.progressBar.setVisible(True)
         self.dialog.status.setVisible(True)
+        self.dialog.btnImport.setEnabled(False)
+        self.dialog.btnClose.setEnabled(False)
 
-        FreeCAD.ActiveDocument.openTransaction("SH3D_Import")
-        FreeCADGui.doCommand("# import sh3d")
-        fn = self.SH3DFilename
-        opt_join_wall = self.dialog.optJoinWalls.isChecked()
-        opt_merge_elements = self.dialog.optMergeElements.isChecked()
-        import_doors = self.dialog.importDoors.isChecked()
-        import_furnitures = self.dialog.importFurnitures.isChecked()
-        import_lights = self.dialog.importLights.isChecked()
-        import_cameras = self.dialog.importCameras.isChecked()
-        cmd =  f"# sh3d.import_sh3d('{fn}', {opt_join_wall}, {opt_merge_elements}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
-        FreeCADGui.doCommand(cmd)
-        from importlib import reload
-        import sh3d.import_sh3d
-        reload(sh3d.import_sh3d)
-        sh3d.import_sh3d.import_sh3d(
-                self.SH3DFilename, 
+        try:
+            FreeCAD.ActiveDocument.openTransaction("SH3D_Import")
+            FreeCADGui.doCommand("# import sh3d")
+            fn = self.SH3DFilename
+            opt_join_wall = self.dialog.optJoinWalls.isChecked()
+            opt_merge_elements = self.dialog.optMergeElements.isChecked()
+            import_doors = self.dialog.importDoors.isChecked()
+            import_furnitures = self.dialog.importFurnitures.isChecked()
+            import_lights = self.dialog.importLights.isChecked()
+            import_cameras = self.dialog.importCameras.isChecked()
+            cmd =  f"# sh3d.import_sh3d('{fn}', {opt_join_wall}, {opt_merge_elements}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
+            FreeCADGui.doCommand(cmd)
+            from importlib import reload
+            import sh3d.import_sh3d
+            reload(sh3d.import_sh3d)
+            sh3d.import_sh3d.import_sh3d(
+                self.SH3DFilename,
                 opt_join_wall,
                 opt_merge_elements,
                 import_doors,
@@ -152,9 +163,12 @@ class SH3D_Import:
                 import_cameras,
                 self.onImportProgress)
 
-        FreeCAD.ActiveDocument.commitTransaction()
-        FreeCAD.ActiveDocument.recompute()
-        self.dialog.progressBar.setVisible(False)
+            FreeCAD.ActiveDocument.commitTransaction()
+            FreeCAD.ActiveDocument.recompute()
+        finally:
+            self.dialog.btnImport.setEnabled(True)
+            self.dialog.btnClose.setEnabled(True)
+            self.dialog.progressBar.setVisible(False)
 
     def onClose(self):
         pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
