@@ -47,23 +47,39 @@ class SH3D_Import:
 
     def Activated(self):
         """Shows the GeoData Import UI"""
-        self.SH3DFilename = None
+        pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
+
+        has_render = False
+        try:
+            import Render
+            has_render = True
+        except:
+            pass
+
+        self.SH3DFilename  = pref.GetString("LastSH3DFilename")
 
         self.dialog = FreeCADGui.PySideUic.loadUi(
             os.path.join(os.path.dirname(__file__), "SH3D_Import.ui")
         )
+
+        self.dialog.importCameras.setEnabled(has_render)
+        self.dialog.importLights.setEnabled(has_render)
+
+        self.dialog.importDoors.setChecked(pref.GetBool("ImportDoors", True))
+        self.dialog.importFurnitures.setChecked(pref.GetBool("ImportFurnitures", True))
+        self.dialog.importLights.setChecked(pref.GetBool("ImportLights", has_render))
+        self.dialog.importCameras.setChecked(pref.GetBool("ImportCameras", has_render))
+        self.dialog.optJoinWalls.setChecked(pref.GetBool("OptJoinWalls", True))
+        self.dialog.optMergeElements.setChecked(pref.GetBool("OptMergeElements", True))
+
         self.dialog.sh3dSelectFile.clicked.connect(self.onSH3DSelectFile)
         self.dialog.sh3dFilename.textChanged.connect(self.onSH3DFilenameChanged)
         self.dialog.btnImport.clicked.connect(self.onImport)
         self.dialog.btnClose.clicked.connect(self.onClose)
         self.dialog.progressBar.setVisible(False)
         self.dialog.status.setVisible(False)
-
-        # restore window geometry from stored state
-        pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
         self.dialog.resize(pref.GetInt("WindowWidth", 800), pref.GetInt("WindowHeight", 600))
         self.dialog.setWindowIcon(QtGui.QIcon(":Resources/icons/SH3D_Import.svg"))
-
         self.updateSH3DFields()
 
         # center the dialog over the FreeCAD window
@@ -120,17 +136,11 @@ class SH3D_Import:
             upd_function(self)
 
     def updateSH3DFields(self):
-        """Update the dialog filename.
+        """Update the dialog filename and enable/disable the import button
         """
         self.dialog.sh3dFilename.setText(self.SH3DFilename)
-        has_render = False
-        try:
-            import Render
-            has_render = True
-        except:
-            pass
-        self.dialog.importCameras.setEnabled(has_render)
-        self.dialog.importLights.setEnabled(has_render)
+        is_valid_file = True if self.SH3DFilename and os.path.isfile(self.SH3DFilename) else False
+        self.dialog.btnImport.setEnabled(is_valid_file)
 
     def onImport(self):
         self.dialog.progressBar.setVisible(True)
@@ -174,6 +184,15 @@ class SH3D_Import:
         pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
         pref.SetInt("WindowWidth", self.dialog.frameSize().width())
         pref.SetInt("WindowHeight", self.dialog.frameSize().height())
+        pref.SetString("LastSH3DSelectDirname", self.SH3DFilename)
+        pref.SetString("LastSH3DFilename", self.SH3DFilename)
+        pref.SetString("LastSH3DFilename", self.SH3DFilename)
+        pref.SetBool("ImportDoors", self.dialog.importDoors.isChecked())
+        pref.SetBool("ImportFurnitures", self.dialog.importFurnitures.isChecked())
+        pref.SetBool("ImportLights", self.dialog.importLights.isChecked())
+        pref.SetBool("ImportCameras", self.dialog.importCameras.isChecked())
+        pref.SetBool("OptJoinWalls", self.dialog.optJoinWalls.isChecked())
+        pref.SetBool("OptMergeElements", self.dialog.optMergeElements.isChecked())
         self.dialog.done(0)
 
     def onImportProgress(self, progress, status):

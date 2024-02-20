@@ -195,6 +195,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btnImport">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="toolTip">
           <string>Import SweetHome3D file</string>
          </property>
