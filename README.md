@@ -40,21 +40,15 @@ For feedback, bugs, feature requests, and further discussion please use a dedica
 This project is covered by FreeCAD [Code of Conduct](https://github.com/FreeCAD/FreeCAD/blob/master/CODE_OF_CONDUCT.md).
 Please comply to this code in all your contributions (issue openings, pull requests...).
 
-## Temporary debugging of SNAP base file
+## Temporary debugging of SNAP-based file
 
-In order be able to rapidly test a fix impacting a file within the SNAP distribution you can:
-
-1. Copy the impacted file somewhere you can modify it:
-
-```shell
-TARGET=/snap/freecad/current/usr/Mod/AddonManager/addonmanager_devmode_metadata_checker.py
-cp $TARGET /tmp/addonmanager_devmode_metadata_checker.py
-```
+In order to rapidly test a fix impacting a file within a SNAP package you can:
 
 1. Mount bind the file into the SNAP
 
 ```shell
-mount -o ro,bind /tmp/addonmanager_devmode_metadata_checker.py $TARGET
+TARGET=/snap/freecad/current/usr/Mod/Draft/draftgeoutils/circles.py
+mount -o ro,bind /path/to/git/FreeCAD/src/Mod/Draft/draftgeoutils/circles.py $TARGET
 ```
 
 1. Once done, simply unmount the target:
@@ -62,5 +56,3 @@ mount -o ro,bind /tmp/addonmanager_devmode_metadata_checker.py $TARGET
 ```shell
 umount $TARGET
 ```
-
-An alternative is to link to the git repository pointing to the version of your snap.

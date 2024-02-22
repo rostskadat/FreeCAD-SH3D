@@ -114,18 +114,22 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
 
         progress_callback(30, "Importing doors ...")
         if import_doors:
+            FreeCAD.ActiveDocument.recompute()
             _import_doors(home, floors)
 
         progress_callback(40, "Importing furnitues ...")
         if import_furnitures:
+            FreeCAD.ActiveDocument.recompute()
             _import_furnitures(home, zip, floors)
 
         progress_callback(50, "Importing lights ...")
         if import_lights:
+            FreeCAD.ActiveDocument.recompute()
             _import_lights(home, zip, floors)
 
         progress_callback(60, "Importing cameras ...")
         if import_cameras:
+            FreeCAD.ActiveDocument.recompute()
             _import_observer_cameras(home)
 
         progress_callback(70, "Creating Arch::Site ...")
@@ -373,14 +377,15 @@ def _import_wall(floors, import_baseboards, imported_tuple):
         wall = _get_element_to_merge(imported_wall, 'wall')
 
     if not wall:
+        invert_angle = False
         if imported_wall.get('arcExtent'):
-            wall = _make_arqued_wall(floor, imported_wall)
+            wall, invert_angle = _make_arqued_wall(floor, imported_wall)
         elif imported_wall.get('heightAtEnd'):
             wall = _make_tappered_wall(floor, imported_wall)
         else:
             wall = _make_straight_wall(floor, imported_wall)
 
-    _set_wall_colors(wall, imported_wall)
+    _set_wall_colors(wall, imported_wall, invert_angle)
     wall.IfcType = "Wall"
 
     _add_property(wall, "App::PropertyString", "shType", "The element type")
@@ -399,12 +404,13 @@ def _import_wall(floors, import_baseboards, imported_tuple):
     wall.leftSideShininess = float(imported_wall.get('leftSideShininess', 0))
     wall.rightSideShininess = float(imported_wall.get('rightSideShininess', 0))
 
+    floor.addObject(wall)
+
     if import_baseboards:
+        FreeCAD.ActiveDocument.recompute()
         baseboards = _import_baseboards(wall, imported_wall)
         if len(baseboards):
             FreeCAD.ActiveDocument.Baseboards.addObjects(baseboards)
-
-    floor.addObject(wall)
 
     if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
@@ -494,25 +500,38 @@ def _make_arqued_wall(floor, imported_wall):
     height1 = _dim_sh2fc(imported_wall.get('height', _dim_fc2sh(floor.Height)))
     height2 = _dim_sh2fc(imported_wall.get('heightAtEnd', _dim_fc2sh(height1)))
 
+    # FROM HERE ALL IS IN FC COORDINATE
+
     # Calculate the circle that pases through the center of both rectangle
     #   and has the correct angle betwen p1 and p2
     chord = DraftVecUtils.dist(p1, p2)
     radius = abs(chord / (2*math.sin(arc_extent/2)))
 
     circles = DraftGeomUtils.circleFrom2PointsRadius(p1, p2, radius)
-    # We take the circle that preserve the arc_extent orientation. The orientation
-    #   is calculated from p1 to p2
+    # We take the center that preserve the arc_extent orientation (in FC 
+    #   coordinate). The orientation is calculated from p1 to p2
+    invert_angle = False
     center = circles[0].Center
     if numpy.sign(arc_extent) != numpy.sign(DraftVecUtils.angle(p1-center, p2-center)):
+        invert_angle = True
         center = circles[1].Center
+
+    # radius1 and radius2 are the vector from center to p1 and p2 respectively
+    radius1 = p1-center
+    radius2 = p2-center
 
     # NOTE: FreeCAD.Vector.getAngle return unsigned angle, using
     #   DraftVecUtils.angle instead
     # a1 and a2 are the angle between each etremity radius and the unit vector
     #   they are used to determine the rotation for the section used to draw
     #   the wall.
-    a1 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p1-center))
-    a2 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), p2-center))
+    a1 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), radius1))
+    a2 = math.degrees(DraftVecUtils.angle(FreeCAD.Vector(1,0,0), radius2))
+
+    if DEBUG:
+        p1C1p2 = numpy.sign(DraftVecUtils.angle(p1-circles[0].Center, p2-circles[0].Center))
+        p1C2p2 = numpy.sign(DraftVecUtils.angle(p1-circles[1].Center, p2-circles[1].Center))
+        print (f"{imported_wall.get('id')}: arc_extent={round(math.degrees(arc_extent))}, sign(C1)={p1C1p2}, sign(C2)={p1C2p2}, c={center}, a1={round(a1)}, a2={round(a2)}")
 
     # Place the 1st section.
     # The rectamgle is oriented vertically and normal to the radius (ZYX)
@@ -529,19 +548,80 @@ def _make_arqued_wall(floor, imported_wall):
     placement2 = FreeCAD.Placement(p2, r2) * p_corner
     section2 = Draft.make_rectangle(thickness, height2, placement2)
 
+    if DEBUG:
+        section1.ViewObject.LineColor = DEBUG_COLOR
+        section2.ViewObject.LineColor = DEBUG_COLOR
+
+        origin = FreeCAD.Vector(0,0,0)
+        g = FreeCAD.ActiveDocument.addObject("App::DocumentObjectGroup", imported_wall.get('id'))
+
+        def _debug_transformation(label, center, thickness, height, angle, point):
+            p = Draft.make_point(center.x, center.y, center.z, color=DEBUG_COLOR, name=f"C{label}", point_size=5)
+            g.addObject(p)
+
+            p = Draft.make_point(point.x, point.y, point.z, color=DEBUG_COLOR, name=f"P{label}", point_size=5)
+            g.addObject(p)
+            
+            l = Draft.make_wire([origin,point])
+            l.ViewObject.LineColor = DEBUG_COLOR
+            l.Label = f"O-P{label}"
+            g.addObject(l)
+
+            s = Draft.make_rectangle(thickness, height)
+            s.ViewObject.LineColor = DEBUG_COLOR
+            s.Label = f"O-S{label}"
+            g.addObject(s)
+
+            r = FreeCAD.Rotation(0, 0, 0)
+            p = FreeCAD.Placement(origin, r) * p_corner
+            s = Draft.make_rectangle(thickness, height, p)
+            s.ViewObject.LineColor = DEBUG_COLOR
+            s.Label = f"O-S{label}-(corner)"
+            g.addObject(s)
+
+            r = FreeCAD.Rotation(angle, 0, 0)
+            p = FreeCAD.Placement(origin, r) * p_corner
+            s = Draft.make_rectangle(thickness, height, p)
+            s.ViewObject.LineColor = DEBUG_COLOR
+            s.Label = f"O-S{label}-(corner+a{label})"
+            g.addObject(s)
+
+            r = FreeCAD.Rotation(angle, 0, 90)
+            p = FreeCAD.Placement(origin, r) * p_corner
+            s = Draft.make_rectangle(thickness, height, p)
+            s.ViewObject.LineColor = DEBUG_COLOR
+            s.Label = f"O-S{label}-(corner+a{label}+90)"
+            g.addObject(s)
+
+            r = FreeCAD.Rotation(angle, 0, 90)
+            p = FreeCAD.Placement(point, r) * p_corner
+            s = Draft.make_rectangle(thickness, height, p)
+            s.ViewObject.LineColor = DEBUG_COLOR
+            s.Label = f"P{label}-S{label}-(corner+a{label}+90)"
+            g.addObject(s)
+
+        _debug_transformation("1", circles[0].Center, thickness, height1, a1, p1)
+        _debug_transformation("2", circles[1].Center, thickness, height2, a2, p2)
+
     # Create the spine
     placement = FreeCAD.Placement(center, FreeCAD.Rotation())
-    spine = Draft.make_circle(radius, placement, True, a2, a1)
+    if invert_angle:
+        spine = Draft.make_circle(radius, placement, False, a1, a2)
+    else:
+        spine = Draft.make_circle(radius, placement, False, a2, a1)
 
     feature = FreeCAD.ActiveDocument.addObject('Part::Sweep')
     feature.Sections = [ section1, section2 ]
     feature.Spine = spine
     feature.Solid = True
     feature.Frenet = False
+    section1.Visibility = False
+    section2.Visibility = False
+    spine.Visibility = False
     wall = Arch.makeWall(feature)
-    return wall
+    return wall, invert_angle
 
-def _set_wall_colors(wall, imported_wall):
+def _set_wall_colors(wall, imported_wall, invert_angle):
     # The default color of the wall
     pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
     defaultWallColor = pref.GetString("DefaultWallColor", 'FF96A9BA')
@@ -551,7 +631,17 @@ def _set_wall_colors(wall, imported_wall):
     rightSideColor = _hex2rgb(imported_wall.get('rightSideColor', topColor))
     topColor = _hex2rgb(topColor)
 
-    colors = [leftSideColor, topColor, rightSideColor, topColor, topColor, topColor]
+    # Unfortunately all faces are not defined the same way for all the wall.
+    # It depends on the type of wall :o
+    if imported_wall.get('arcExtent'):
+        if invert_angle:
+            colors = [topColor, rightSideColor, topColor, leftSideColor, topColor, topColor]
+        else:
+            colors = [topColor, leftSideColor, topColor, rightSideColor, topColor, topColor]
+    elif imported_wall.get('heightAtEnd'):
+        colors = [topColor, topColor, topColor, topColor, rightSideColor, leftSideColor]
+    else:
+        colors = [leftSideColor, topColor, rightSideColor, topColor, topColor, topColor]
     if hasattr(wall.ViewObject, "DiffuseColor"):
         wall.ViewObject.DiffuseColor = colors
 
@@ -565,7 +655,6 @@ def _import_baseboards(wall, imported_wall):
     Returns:
         list: the list of imported baseboards
     """
-    FreeCAD.ActiveDocument.recompute()
     return list(map(partial(_import_baseboard, wall), imported_wall.findall('baseboard')))
 
 def _import_baseboard(wall, imported_baseboard):
@@ -782,6 +871,7 @@ def _get_wall(point):
     for object in FreeCAD.ActiveDocument.Objects:
         if Draft.getType(object) == "Wall":
             bb = object.Shape.BoundBox
+            FreeCAD.Console.PrintWarning(f"{object.id}: {object.Shape.BoundBox} / {point}\n")
             try:
                 if bb.isInside(point):
                     return object
@@ -1146,7 +1236,10 @@ def _rgb2hex(r,g,b):
 def _hex2rgb(hexcode):
     # We might have transparency as the first 2 digit
     offset = 0 if len(hexcode) == 6 else 2
-    return (float(int(hexcode[offset:offset+2], 16))/255, float(int(hexcode[offset+2:offset+4], 16))/255, float(int(hexcode[offset+4:offset+6], 16))/255)
+    return (int(hexcode[offset:offset+2], 16),   # Red
+            int(hexcode[offset+2:offset+4], 16), # Green
+            int(hexcode[offset+4:offset+6], 16)  # Blue
+            )
 
 def _hex2transparency(hexcode):
     return 50 if DEBUG else 100 - int( int(hexcode[0:2], 16) * 100 / 255 )
@@ -1222,6 +1315,9 @@ def _dim_sh2fc(dimension):
 def _ang_sh2fc(angle):
     """Convert SweetHome angle (º) to FreeCAD angle (º)
 
+    SweetHome angles are clockwise positive while FreeCAD are anti-clockwise 
+    positive
+
     Args:
         angle (float): The angle in SweetHome
 
@@ -1232,6 +1328,9 @@ def _ang_sh2fc(angle):
 
 def _ang_fc2sh(angle):
     """Convert FreeCAD angle (º) to SweetHome angle (º)
+
+    SweetHome angles are clockwise positive while FreeCAD are anti-clockwise 
+    positive
 
     Args:
         angle (float): The angle in FreeCAD

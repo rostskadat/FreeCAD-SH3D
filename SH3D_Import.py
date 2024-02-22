@@ -46,7 +46,7 @@ class SH3D_Import:
         return not FreeCAD.ActiveDocument is None
 
     def Activated(self):
-        """Shows the GeoData Import UI"""
+        """Shows the SweetHome3D Import UI"""
         pref = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SH3D")
 
         has_render = False
