@@ -19,7 +19,7 @@ import SH3D_Import
 Gui.runCommand('SH3D_Import',0)
 ```
 
-![SweetHome3D Import Howto](Resources/docs/usage.gif "SweetHome3D Import Howto")
+![SweetHome3D Import Howto](Resources/docs/SH3D_usage.gif "SweetHome3D Import Howto")
 
 Alternatively you can customize your toolbar and add the `Import SweetHome3D files` from the `SH3D_Import` package
 
