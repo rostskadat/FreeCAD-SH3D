@@ -376,8 +376,8 @@ def _import_wall(floors, import_baseboards, imported_tuple):
     if shoul_merge_elements:
         wall = _get_element_to_merge(imported_wall, 'wall')
 
+    invert_angle = False
     if not wall:
-        invert_angle = False
         if imported_wall.get('arcExtent'):
             wall, invert_angle = _make_arqued_wall(floor, imported_wall)
         elif imported_wall.get('heightAtEnd'):
@@ -508,7 +508,7 @@ def _make_arqued_wall(floor, imported_wall):
     radius = abs(chord / (2*math.sin(arc_extent/2)))
 
     circles = DraftGeomUtils.circleFrom2PointsRadius(p1, p2, radius)
-    # We take the center that preserve the arc_extent orientation (in FC 
+    # We take the center that preserve the arc_extent orientation (in FC
     #   coordinate). The orientation is calculated from p1 to p2
     invert_angle = False
     center = circles[0].Center
@@ -561,7 +561,7 @@ def _make_arqued_wall(floor, imported_wall):
 
             p = Draft.make_point(point.x, point.y, point.z, color=DEBUG_COLOR, name=f"P{label}", point_size=5)
             g.addObject(p)
-            
+
             l = Draft.make_wire([origin,point])
             l.ViewObject.LineColor = DEBUG_COLOR
             l.Label = f"O-P{label}"
@@ -837,6 +837,8 @@ def _create_window(floor, imported_door):
     # NOTE: the windows are not imported as meshes, but we use a simple
     #   correspondance between a catalog ID and a specific window preset from
     #   the parts library.
+    # Arch.WindowPresets =  ["Fixed", "Open 1-pane", "Open 2-pane", "Sash 2-pane", "Sliding 2-pane", "Simple door", "Glass door", "Sliding 4-pane", "Awning"]
+
     catalog_id = imported_door.get('catalogId')
     if catalog_id in ("eTeks#fixedWindow85x123", "eTeks#window85x123", "eTeks#doubleWindow126x123", "eTeks#doubleWindow126x163", "eTeks#doubleFrenchWindow126x200", "eTeks#window85x163", "eTeks#frenchWindow85x200", "eTeks#doubleHungWindow80x122", "eTeks#roundWindow", "eTeks#halfRoundWindow"):
         windowtype = 'Open 2-pane'
@@ -845,8 +847,8 @@ def _create_window(floor, imported_door):
     elif catalog_id in ("eTeks#frontDoor", "eTeks#roundedDoor", "eTeks#door", "eTeks#doorFrame", "eTeks#roundDoorFrame"):
         windowtype = 'Simple door'
     else:
-        FreeCAD.Console.PrintWarning(f"Unknown catalogId {catalog_id} for door {imported_door.get('id')}. Skipping\n")
-        return None
+        FreeCAD.Console.PrintWarning(f"Unknown catalogId {catalog_id} for door {imported_door.get('id')}. Defaulting to 'Simple Door'\n")
+        windowtype = 'Simple door'
 
     h1 = 10
     h2 = 10
@@ -964,6 +966,8 @@ def _create_furniture(floors, imported_furniture, mesh):
     y = float(imported_furniture.get('y',0))
     z = float(imported_furniture.get('elevation', 0.0))
     angle = float(imported_furniture.get('angle', 0.0))
+    pitch = float(imported_furniture.get('pitch', 0.0)) # X Axis
+    roll = float(imported_furniture.get('roll', 0.0)) # Y Axis
     name = imported_furniture.get('name')
     mirrored = bool(imported_furniture.get('modelMirrored', "false") == "true")
 
@@ -974,7 +978,9 @@ def _create_furniture(floors, imported_furniture, mesh):
     transform.move(-bb.Center)
     # NOTE: the model is facing up, thus y and z are inverted
     transform.scale(width/bb.XLength, height/bb.YLength, depth/bb.ZLength)
-    transform.rotateX(math.pi/2) # 90º
+    transform.rotateX(math.pi/2)
+    transform.rotateX(-pitch)
+    transform.rotateY(roll)
     transform.rotateZ(-angle)
     level_elevation = _dim_fc2sh(floor.Placement.Base.z)
     transform.move(_coord_sh2fc(FreeCAD.Vector(x, y, level_elevation + z + (_dim_fc2sh(height) / 2))))
@@ -1315,7 +1321,7 @@ def _dim_sh2fc(dimension):
 def _ang_sh2fc(angle):
     """Convert SweetHome angle (º) to FreeCAD angle (º)
 
-    SweetHome angles are clockwise positive while FreeCAD are anti-clockwise 
+    SweetHome angles are clockwise positive while FreeCAD are anti-clockwise
     positive
 
     Args:
@@ -1329,7 +1335,7 @@ def _ang_sh2fc(angle):
 def _ang_fc2sh(angle):
     """Convert FreeCAD angle (º) to SweetHome angle (º)
 
-    SweetHome angles are clockwise positive while FreeCAD are anti-clockwise 
+    SweetHome angles are clockwise positive while FreeCAD are anti-clockwise
     positive
 
     Args:

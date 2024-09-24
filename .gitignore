@@ -1,2 +1,3 @@
 *.pyc
 Resources/sample/Sample/*
+sh3d/test_group_wall.py
