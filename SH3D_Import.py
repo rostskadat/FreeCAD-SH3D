@@ -62,8 +62,9 @@ class SH3D_Import:
             os.path.join(os.path.dirname(__file__), "SH3D_Import.ui")
         )
 
-        self.dialog.importCameras.setEnabled(has_render)
         self.dialog.importLights.setEnabled(has_render)
+        self.dialog.importCameras.setEnabled(has_render)
+        self.dialog.optCreateRenderProject.setEnabled(has_render)
 
         self.dialog.importDoors.setChecked(pref.GetBool("ImportDoors", True))
         self.dialog.importFurnitures.setChecked(pref.GetBool("ImportFurnitures", True))
@@ -71,6 +72,7 @@ class SH3D_Import:
         self.dialog.importCameras.setChecked(pref.GetBool("ImportCameras", has_render))
         self.dialog.optJoinWalls.setChecked(pref.GetBool("OptJoinWalls", True))
         self.dialog.optMergeElements.setChecked(pref.GetBool("OptMergeElements", True))
+        self.dialog.optCreateRenderProject.setChecked(pref.GetBool("OptCreateRenderProject", has_render))
 
         self.dialog.sh3dSelectFile.clicked.connect(self.onSH3DSelectFile)
         self.dialog.sh3dFilename.textChanged.connect(self.onSH3DFilenameChanged)
@@ -154,11 +156,12 @@ class SH3D_Import:
             fn = self.SH3DFilename
             opt_join_wall = self.dialog.optJoinWalls.isChecked()
             opt_merge_elements = self.dialog.optMergeElements.isChecked()
+            opt_create_render_project = self.dialog.optCreateRenderProject.isChecked()
             import_doors = self.dialog.importDoors.isChecked()
             import_furnitures = self.dialog.importFurnitures.isChecked()
             import_lights = self.dialog.importLights.isChecked()
             import_cameras = self.dialog.importCameras.isChecked()
-            cmd =  f"# sh3d.import_sh3d('{fn}', {opt_join_wall}, {opt_merge_elements}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras})"
+            cmd =  f"# sh3d.import_sh3d('{fn}', {opt_join_wall}, {opt_merge_elements}, {import_doors}, {import_furnitures}, {import_lights}, {import_cameras}, {opt_create_render_project})"
             FreeCADGui.doCommand(cmd)
             from importlib import reload
             import sh3d.import_sh3d
@@ -171,6 +174,7 @@ class SH3D_Import:
                 import_furnitures,
                 import_lights,
                 import_cameras,
+                opt_create_render_project,
                 self.onImportProgress)
 
             FreeCAD.ActiveDocument.commitTransaction()
@@ -193,6 +197,7 @@ class SH3D_Import:
         pref.SetBool("ImportCameras", self.dialog.importCameras.isChecked())
         pref.SetBool("OptJoinWalls", self.dialog.optJoinWalls.isChecked())
         pref.SetBool("OptMergeElements", self.dialog.optMergeElements.isChecked())
+        pref.SetBool("OptCreateRenderProject", self.dialog.optCreateRenderProject.isChecked())
         self.dialog.done(0)
 
     def onImportProgress(self, progress, status):

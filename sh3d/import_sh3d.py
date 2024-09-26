@@ -56,7 +56,7 @@ except:
 shoul_merge_elements = True
 document_elements = {}
 
-def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_callback=None):
+def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, create_render_project=True, progress_callback=None):
     """Import a SweetHome 3D file into the current document.
 
     NOTE: the SweetHome 3D file (Home.xml) is read as per https://www.sweethome3d.com/SweetHome3D.dtd
@@ -69,6 +69,7 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
         import_furnitures (bool, optional): whether to import furnitures. Defaults to True.
         import_lights (bool, optional): whether to import lights. Defaults to True.
         import_cameras (bool, optional): whether to import cameras. Defaults to True.
+        create_render_project (bool, optional): whether to create a default Render. Defaults to True.
         progress_callback (func): a function to set the progress porcentage and the status. Defaults to None.
 
     Raises:
@@ -117,22 +118,22 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
 
         progress_callback(30, "Importing doors ...")
         if import_doors:
-            FreeCAD.ActiveDocument.recompute()
+            document.recompute()
             _import_doors(home, floors)
 
         progress_callback(40, "Importing furnitues ...")
         if import_furnitures:
-            FreeCAD.ActiveDocument.recompute()
+            document.recompute()
             _import_furnitures(home, zip, floors)
 
         progress_callback(50, "Importing lights ...")
         if import_lights:
-            FreeCAD.ActiveDocument.recompute()
+            document.recompute()
             _import_lights(home, zip, floors)
 
         progress_callback(60, "Importing cameras ...")
         if import_cameras:
-            FreeCAD.ActiveDocument.recompute()
+            document.recompute()
             _import_cameras(home)
 
         progress_callback(70, "Creating Arch::Site ...")
@@ -142,14 +143,23 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
         if shoul_merge_elements:
             building = _get_element_to_merge({'id':name}, 'building')
 
+        site = None
         if not building:
             building = Arch.makeBuilding(floors)
             _add_property(building, "App::PropertyString", "shType", "The element type")
             _add_property(building, "App::PropertyString", "id", "The element's id")
             building.shType = 'building'
             building.id = name
-            Arch.makeSite([ building ])
+            site = Arch.makeSite([ building ])
             Arch.makeProject([ ])
+
+        if RENDER_AVAILABLE and create_render_project and site:
+            from Render.project import Project
+            progress_callback(80, "Creating default Render::Project ...")
+            Project.create(document, renderer="Povray", template="povray_standard.pov")
+            FreeCADGui.Selection.clearSelection()
+            FreeCADGui.Selection.addSelection(site)
+            FreeCADGui.runCommand('Render_View',0)
 
         # TODO: Should be set only when opening a file, not when importing
         document.Label = name
@@ -159,6 +169,8 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
 
         progress_callback(100, "Successfully imported data.")
 
+
+        
 
     FreeCAD.activeDocument().recompute()
     if FreeCAD.GuiUp:
@@ -1105,6 +1117,8 @@ def _import_materials(imported_furniture):
     return materials
 
 def _import_lights(home, zip, floors):
+    if not RENDER_AVAILABLE:
+        return []
     list(map(partial(_import_light, zip, floors), enumerate(home.findall('light'))))
 
 def _import_light(zip, floors, imported_tuple):
@@ -1128,9 +1142,6 @@ def _import_light(zip, floors, imported_tuple):
 
     if i != 0 and i % 5 and FreeCAD.GuiUp:
         FreeCADGui.updateGui()
-
-    if not RENDER_AVAILABLE:
-        return None
 
     feature = None
     for j,light_source in enumerate(imported_light.findall('lightSource')):
