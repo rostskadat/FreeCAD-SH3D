@@ -32,6 +32,7 @@ import FreeCADGui
 import Mesh
 import WorkingPlane
 
+import itertools
 import numpy
 import math
 import os
@@ -57,6 +58,8 @@ document_elements = {}
 
 def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=True, import_furnitures=True, import_lights=True, import_cameras=True, progress_callback=None):
     """Import a SweetHome 3D file into the current document.
+
+    NOTE: the SweetHome 3D file (Home.xml) is read as per https://www.sweethome3d.com/SweetHome3D.dtd
 
     Args:
         filename (str): the filename of the document to import
@@ -130,7 +133,7 @@ def import_sh3d(filename, join_walls=True, merge_elements=True, import_doors=Tru
         progress_callback(60, "Importing cameras ...")
         if import_cameras:
             FreeCAD.ActiveDocument.recompute()
-            _import_observer_cameras(home)
+            _import_cameras(home)
 
         progress_callback(70, "Creating Arch::Site ...")
 
@@ -1130,6 +1133,7 @@ def _import_light(zip, floors, imported_tuple):
     if not RENDER_AVAILABLE:
         return None
 
+    feature = None
     for j,light_source in enumerate(imported_light.findall('lightSource')):
         x = float(light_source.get('x'))
         y = float(light_source.get('y'))
@@ -1159,22 +1163,20 @@ def _import_light(zip, floors, imported_tuple):
 
     return feature
 
-def _import_observer_cameras(home):
+def _import_cameras(home):
     if not RENDER_AVAILABLE:
         return []
-    return list(map(partial(_import_observer_camera), enumerate(home.findall('observerCamera'))))
+    return list(map(partial(_import_camera), enumerate(itertools.chain(home.findall('observerCamera'), home.findall('camera')))))
 
-def _import_observer_camera(imported_tuple):
+def _import_camera(imported_tuple):
     """Creates and returns a Render Camera from the imported_camera object
 
     Args:
-        zip (ZipFile): the Zip containing the Mesh file
-        floors (list): the list of imported levels
         imported_tuple (tuple): a tuple containing the index and the
             dict object containg the characteristics of the new object
 
     Returns:
-        Mesh: the newly created object
+        object: the newly created object
     """
     (i, imported_camera) = imported_tuple
 
@@ -1186,19 +1188,26 @@ def _import_observer_camera(imported_tuple):
     # ¿How to convert fov to FocalLength?
     fieldOfView = float(imported_camera.get('fieldOfView'))
 
-    camera_id = f"observerCamera-{i}"
+    attribute = imported_camera.get('attribute')
+    if attribute != "storedCamera":
+        FreeCAD.Console.PrintWarning(f"Camera {i} is of unsupported type '{attribute}'. Skipping!\n")
+        return None
+    
+    camera_id = f"{attribute}-{i}"
     feature = None
     if shoul_merge_elements:
-        feature = _get_element_to_merge({'id':camera_id}, 'observerCamera')
+        feature = _get_element_to_merge({'id':camera_id}, attribute)
 
     if not feature:
         _, feature, _ = Render.Camera.create()
         FreeCAD.ActiveDocument.Cameras.addObject(feature)
 
-    feature.Label = imported_camera.get('name', 'ObserverCamera')
+    fieldOfView = math.degrees(fieldOfView)
+
+    feature.Label = imported_camera.get('name', attribute.title())
     feature.Placement.Base = _coord_sh2fc(FreeCAD.Vector(x,y,z))
     # NOTE: the coordinate system is screen like, thus roll & picth are inverted ZY'X''
-    feature.Placement.Rotation.setYawPitchRoll(math.degrees(yaw), math.degrees(pitch), 0)
+    feature.Placement.Rotation.setYawPitchRoll(180-math.degrees(yaw), 0, 90-math.degrees(pitch))
     feature.Projection = "Perspective"
     feature.AspectRatio = 1.33333333 # /home/environment/@photoAspectRatio
 
@@ -1207,10 +1216,10 @@ def _import_observer_camera(imported_tuple):
     _add_property(feature, "App::PropertyBool", "fixedSize", "Whether the object is fixed size")
     _add_camera_common_attributes(feature, imported_camera)
 
-    feature.shType = 'observerCamera'
+    feature.shType = 'camera'
     feature.id = camera_id
-    feature.attribute = ["observerCamera", "storedCamera", "cameraPath"]
-    feature.attribute = imported_camera.get('attribute')
+    feature.attribute = ["topCamera", "observerCamera", "storedCamera", "cameraPath"]
+    feature.attribute = attribute
     feature.fixedSize = bool(imported_camera.get('fixedSize', False))
 
     if i != 0 and i % 5 and FreeCAD.GuiUp:
@@ -1219,13 +1228,13 @@ def _import_observer_camera(imported_tuple):
     return feature
 
 def _add_camera_common_attributes(feature, imported_camera):
-    _add_property(feature, "App::PropertyString", "id", "The object horizontally rotatable")
+    _add_property(feature, "App::PropertyString", "id", "The object ID")
     _add_property(feature, "App::PropertyEnumeration", "lens", "The object's lens (PINHOLE | NORMAL | FISHEYE | SPHERICAL)")
-    _add_property(feature, "App::PropertyFloat", "yaw", "The object's roll")
-    _add_property(feature, "App::PropertyFloat", "pitch", "The object's width in the plan view")
-    _add_property(feature, "App::PropertyFloat", "time", "The object's depth in the plan view")
-    _add_property(feature, "App::PropertyFloat", "fieldOfView", "The object's height in the plan view")
-    _add_property(feature, "App::PropertyString", "renderer", "The object's height in the plan view")
+    _add_property(feature, "App::PropertyFloat", "yaw", "The object's yaw")
+    _add_property(feature, "App::PropertyFloat", "pitch", "The object's pitch")
+    _add_property(feature, "App::PropertyFloat", "time", "Unknown")
+    _add_property(feature, "App::PropertyFloat", "fieldOfView", "The object's FOV")
+    _add_property(feature, "App::PropertyString", "renderer", "The object's Unknown")
 
     feature.id = str(imported_camera.get('id', True))
     feature.lens = ["PINHOLE", "NORMAL", "FISHEYE", "SPHERICAL"]
@@ -1347,10 +1356,29 @@ def _ang_fc2sh(angle):
     return -float(angle)
 
 def _add_property(obj, property_type, name, description):
+    """Add an property to the FC object.
+
+    All properties will be added under the 'SweetHome3D' group
+
+    Args:
+        obj (object): TheFC object to add a property to
+        property_type (str): the type of property to add
+        name (str): the name of the property to add
+        description (str): a short description of the property to add
+    """
     if name not in obj.PropertiesList:
         obj.addProperty(property_type, name, "SweetHome3D", description)
 
 def _get_element_to_merge(imported_element, sh_type=None):
+    """Returns the FC document element corresponding to the imported id and sh_type
+
+    Args:
+        imported_element (et.element): the XML element to be imported
+        sh_type (str, optional): The SweetHome type of the element to be imported. Defaults to None.
+
+    Returns:
+        FCObject: The FC object that correspond to the imported SH element
+    """
     global shoul_merge_elements
     global document_elements
     id = imported_element.get('id')
@@ -1363,3 +1391,4 @@ def _get_element_to_merge(imported_element, sh_type=None):
         return element
     if DEBUG:
         FreeCAD.Console.PrintMessage(f"No element found with id '{id}' and type '{sh_type}'\n")
+    return None
