@@ -1,30 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
-
   <name>SweetHome3D</name>
-
   <description>An add-on to import file from SweetHome3D.</description>
-
   <version>0.0.1</version>
-
   <date>2024-02-09</date>
-
   <maintainer email="rostskadat@gmail.com">Julien Masnada</maintainer>
-
   <license file="LICENSE">LGPL-3.0-or-later</license>
-
   <freecadmin>0.20.0</freecadmin>
-
   <url type="website">https://github.com/rostskadat/FreeCAD-SH3D</url>
-
   <url branch="main" type="repository">https://github.com/rostskadat/FreeCAD-SH3D</url>
-
   <url type="bugtracker">https://github.com/rostskadat/FreeCAD-SH3D/issues</url>
-
   <url type="readme">https://github.com/rostskadat/FreeCAD-SH3D/blob/main/README.md</url>
-
   <icon>Resources/icons/SH3D_Workbench.svg</icon>
-
   <content>
     <workbench>
       <name>SH3D Workbench</name>
@@ -33,5 +20,5 @@
       <subdirectory>./</subdirectory>
     </workbench>
   </content>
-
+  <depend type="addon" optional="true" version_gte="v2024.6.5">Render</depend>
 </package>
