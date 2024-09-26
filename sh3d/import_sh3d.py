@@ -876,7 +876,6 @@ def _get_wall(point):
     for object in FreeCAD.ActiveDocument.Objects:
         if Draft.getType(object) == "Wall":
             bb = object.Shape.BoundBox
-            FreeCAD.Console.PrintWarning(f"{object.id}: {object.Shape.BoundBox} / {point}\n")
             try:
                 if bb.isInside(point):
                     return object
