@@ -1,3 +1,5 @@
+# BEWARE: THIS WB IS OBSOLETE AND THE IMPORTER OF THE BIM WB SHOULD BE USED INSTEAD
+
 # FreeCAD SweetHome3D add-on
 
 [![FreeCAD Addon manager status](https://img.shields.io/badge/FreeCAD%20addon%20manager-available-brightgreen)](https://github.com/FreeCAD/FreeCAD-addons)
